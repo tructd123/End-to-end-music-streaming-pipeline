@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  # ============================================================
+  # MESSAGE BROKER
+  # ============================================================
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    container_name: redpanda
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+    ports:
+      - "9092:9092"      # Kafka API (external)
+      - "29092:29092"    # Kafka API (internal)
+      - "8082:8082"      # REST Proxy
+      - "9644:9644"      # Admin API
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.4.3
+    container_name: redpanda-console
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_BROKERS=redpanda:29092
+    networks:
+      - streaming-network
+
+  # ============================================================
+  # EVENT GENERATOR
+  # ============================================================
+  eventsim:
+    build:
+      context: ./eventsim
+      dockerfile: docker/Dockerfile.complete
+    container_name: eventsim
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      - KAFKA_BROKER_LIST=redpanda:29092
+    command: >
+      --config /opt/eventsim/examples/example-config.json
+      --nusers 100
+      --from 7
+      --to 1
+      --continuous
+    networks:
+      - streaming-network
+    restart: on-failure
+
+  # ============================================================
+  # DATABASE
+  # ============================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: soundflow
+      POSTGRES_PASSWORD: soundflow123
+      POSTGRES_DB: soundflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soundflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database Admin UI
+  adminer:
+    image: adminer:4.8.1
+    container_name: adminer
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    networks:
+      - streaming-network
+
+  # ============================================================
+  # STREAM PROCESSING
+  # ============================================================
+  spark-streaming:
+    build:
+      context: ./spark_streaming
+      dockerfile: Dockerfile
+    container_name: spark-streaming
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:29092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=soundflow
+      - POSTGRES_USER=soundflow
+      - POSTGRES_PASSWORD=soundflow123
+    volumes:
+      - ./spark_streaming/src:/app/src
+      - ./spark_streaming/checkpoints:/app/checkpoints
+    networks:
+      - streaming-network
+    restart: on-failure
+
+  # ============================================================
+  # ORCHESTRATION & TRANSFORMATION
+  # ============================================================
+  dagster:
+    build:
+      context: ./dagster
+      dockerfile: Dockerfile
+    container_name: dagster
+    depends_on:
+      - postgres
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=soundflow
+      - POSTGRES_USER=soundflow
+      - POSTGRES_PASSWORD=soundflow123
+    ports:
+      - "3000:3000"  # Dagster UI
+    volumes:
+      - ./dagster/dagster_pipeline:/app/dagster_pipeline
+      - ./dbt:/app/dbt
+    networks:
+      - streaming-network
+    command: dagster-webserver -h 0.0.0.0 -p 3000
+
+networks:
+  streaming-network:
+    driver: bridge
+
+volumes:
+  redpanda-data:
+  postgres-data:

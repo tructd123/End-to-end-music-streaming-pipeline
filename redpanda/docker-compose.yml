@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # Redpanda - Kafka-compatible streaming platform
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    container_name: redpanda
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+    ports:
+      - "9092:9092"      # Kafka API (external)
+      - "29092:29092"    # Kafka API (internal)
+      - "8081:8081"      # Schema Registry
+      - "8082:8082"      # REST Proxy / Pandaproxy
+      - "9644:9644"      # Admin API
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redpanda Console - Web UI for managing Redpanda
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.4.3
+    container_name: redpanda-console
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_BROKERS=redpanda:29092
+    networks:
+      - streaming-network
+
+  # EventSim - Event data generator
+  eventsim:
+    build:
+      context: ../eventsim
+      dockerfile: docker/Dockerfile.complete
+    container_name: eventsim
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      - KAFKA_BROKER_LIST=redpanda:29092
+    command: >
+      --config /opt/eventsim/examples/example-config.json
+      --nusers 100
+      --from 7
+      --to 1
+      --continuous
+    networks:
+      - streaming-network
+    restart: on-failure
+
+volumes:
+  redpanda-data:
+
+networks:
+  streaming-network:
+    driver: bridge

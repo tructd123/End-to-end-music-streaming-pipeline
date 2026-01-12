@@ -1,0 +1,26 @@
+version: '3.8'
+
+# Docker Compose for testing Spark Streaming locally
+# This file only runs Spark to test reading from Redpanda
+
+services:
+  spark-test:
+    image: apache/spark:3.5.0
+    container_name: spark-test
+    user: root
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:29092
+    volumes:
+      - ./src:/opt/spark/app:ro
+    working_dir: /opt/spark/work-dir
+    command: >
+      /opt/spark/bin/spark-submit 
+      --master local[*]
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0
+      /opt/spark/app/test_local.py
+    networks:
+      - redpanda_streaming-network
+
+networks:
+  redpanda_streaming-network:
+    external: true

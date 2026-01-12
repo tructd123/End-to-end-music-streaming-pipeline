@@ -1,0 +1,161 @@
+# =====================================================
+# SOUNDFLOW - DATA STREAMING PIPELINE
+# =====================================================
+
+# ====================
+# Python
+# ====================
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+
+# ====================
+# Credentials - NEVER COMMIT!
+# ====================
+credentials/
+*.pem
+*.key
+*.json
+!package.json
+!eventsim/**/*.json
+service-account*.json
+gcp-key*.json
+
+# ====================
+# Environment Variables
+# ====================
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+!.env.example
+
+# ====================
+# IDE & Editors
+# ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ====================
+# OS Generated
+# ====================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ====================
+# Terraform
+# ====================
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+terraform/.terraform.lock.hcl
+terraform/crash.log
+terraform/override.tf
+terraform/override.tf.json
+!terraform/*.tfvars.example
+!terraform/*.tf
+
+# ====================
+# Spark
+# ====================
+spark_streaming/metastore_db/
+spark_streaming/spark-warehouse/
+spark_streaming/checkpoints/
+derby.log
+
+# ====================
+# dbt
+# ====================
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+dbt/profiles.yml
+!dbt/profiles.yml.example
+
+# ====================
+# Dagster
+# ====================
+dagster/dagster_home/history/
+dagster/dagster_home/storage/
+dagster/dagster_home/schedules/
+dagster/dagster_home/logs/
+dagster/dagster_home/runs/
+dagster/.dagster/
+
+# ====================
+# Docker
+# ====================
+*.log
+docker-compose.override.yml
+
+# ====================
+# Data Files
+# ====================
+*.csv
+*.parquet
+*.avro
+*.orc
+data/
+!eventsim/data/
+
+# ====================
+# Logs
+# ====================
+*.log
+logs/
+*.out
+
+# ====================
+# Jupyter Notebooks
+# ====================
+.ipynb_checkpoints/
+*.ipynb
+
+# ====================
+# Misc
+# ====================
+*.bak
+*.tmp
+*.temp
+.cache/
+node_modules/

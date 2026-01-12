@@ -1,0 +1,58 @@
+# Stage 1: Build the 'fat' jar using sbt
+# We use a standard JDK image and install sbt manually to avoid tag issues
+FROM eclipse-temurin:11-jdk-jammy AS builder
+
+WORKDIR /app
+
+# Install sbt
+# Downloading a recent sbt version. The project's build.properties will pin the actual version used.
+ENV SBT_VERSION=1.9.7
+RUN apt-get update && \
+    apt-get install -y curl tar gzip && \
+    curl -L "https://github.com/sbt/sbt/releases/download/v$SBT_VERSION/sbt-$SBT_VERSION.tgz" | tar xz -C /usr/local --strip-components=1 && \
+    sbt sbtVersion
+
+# Copy project definition files first to cache dependencies
+COPY project project
+COPY build.sbt .
+COPY assembly.sbt .
+
+# Copy source code
+COPY src src
+COPY data data
+COPY examples examples
+
+
+# Run assembly to create the fat jar
+# This might take a while as it downloads dependencies
+RUN sbt assembly
+
+# Stage 2: Create the runtime image
+FROM eclipse-temurin:11-jre-jammy
+
+WORKDIR /opt/eventsim
+
+# Copy the jar from the builder stage
+COPY --from=builder /app/target/scala-2.12/eventsim-assembly-2.0.jar /opt/eventsim/eventsim-assembly-2.0.jar
+
+# Copy necessary scripts and data
+COPY docker/eventsim.sh /opt/eventsim/eventsim.sh
+COPY examples /opt/eventsim/examples
+COPY data /opt/eventsim/data
+
+# Process data: Keep only 10,000 songs
+# We decompress, take top 10000 lines, and recompress
+RUN gzip -d -c /opt/eventsim/data/listen_counts.txt.gz | head -n 10000 | gzip > /opt/eventsim/data/listen_counts_short.txt.gz \
+    && mv /opt/eventsim/data/listen_counts_short.txt.gz /opt/eventsim/data/listen_counts.txt.gz
+
+# Ensure the script is executable and has correct line endings (Unix style)
+RUN sed -i 's/\r$//' /opt/eventsim/eventsim.sh && \
+    chmod +x /opt/eventsim/eventsim.sh
+
+# Environment variables for Redpanda/Kafka connection
+ENV KAFKA_BROKER_LIST=redpanda:9092
+
+# Expose no ports as this is a producer only
+# The container will connect to Redpanda broker
+
+ENTRYPOINT ["/opt/eventsim/eventsim.sh"]

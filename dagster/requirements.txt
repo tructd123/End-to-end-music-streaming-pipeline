@@ -1,0 +1,18 @@
+# Dagster Dependencies
+dagster==1.6.0
+dagster-webserver==1.6.0
+dagster-gcp==0.22.0
+dagster-dbt==0.22.0
+
+# GCP Libraries
+google-cloud-storage==2.14.0
+google-cloud-bigquery==3.14.1
+
+# dbt
+dbt-core==1.7.0
+dbt-bigquery==1.7.0
+
+# Utilities
+pandas==2.1.4
+pyarrow==14.0.2
+python-dotenv==1.0.0

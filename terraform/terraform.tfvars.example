@@ -1,0 +1,6 @@
+# Development environment configuration
+project_id      = "your-gcp-project-id"
+region          = "asia-southeast1"
+environment     = "dev"
+gcs_bucket_name = "music-streaming-data-lake-dev"
+bq_dataset_id   = "music_streaming_dev"

@@ -1,0 +1,35 @@
+name: 'soundflow'
+version: '1.0.0'
+config-version: 2
+
+profile: 'soundflow'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  # Business logic variables
+  active_user_threshold_hours: 24
+  session_timeout_minutes: 30
+
+models:
+  soundflow:
+    +materialized: view
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: view
+      +schema: intermediate  
+    marts:
+      +materialized: table
+      +schema: marts

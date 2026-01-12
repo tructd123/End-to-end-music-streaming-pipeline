@@ -1,0 +1,40 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ env_var('GCP_PROJECT') }}"
+    schema: music_streaming
+    description: "Raw event data from streaming pipeline"
+    
+    tables:
+      - name: stg_listen_events
+        description: "Staging table for listen events"
+        columns:
+          - name: user_id
+            description: "Unique user identifier"
+          - name: song
+            description: "Song title"
+          - name: artist
+            description: "Artist name"
+          - name: event_timestamp
+            description: "Event timestamp"
+            
+      - name: stg_page_view_events
+        description: "Staging table for page view events"
+        columns:
+          - name: user_id
+            description: "Unique user identifier"
+          - name: page
+            description: "Page visited"
+          - name: event_timestamp
+            description: "Event timestamp"
+            
+      - name: stg_auth_events
+        description: "Staging table for authentication events"
+        columns:
+          - name: user_id
+            description: "Unique user identifier"
+          - name: auth
+            description: "Authentication status"
+          - name: event_timestamp
+            description: "Event timestamp"
