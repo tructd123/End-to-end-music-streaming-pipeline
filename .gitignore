@@ -138,6 +138,11 @@ docker-compose.override.yml
 data/
 !eventsim/data/
 
+# Large data files (use Git LFS if needed)
+*.gz
+!eventsim/data/*.txt
+eventsim/data/*.gz
+
 # ====================
 # Logs
 # ====================
