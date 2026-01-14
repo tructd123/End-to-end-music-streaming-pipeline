@@ -2,39 +2,71 @@ version: 2
 
 sources:
   - name: raw
-    database: "{{ env_var('GCP_PROJECT') }}"
-    schema: music_streaming
-    description: "Raw event data from streaming pipeline"
+    description: "Raw event data from Spark Streaming pipeline"
+    # PostgreSQL local: database=soundflow, schema=raw
+    # BigQuery: project from profile, dataset=raw
+    database: "{% if target.type == 'postgres' %}soundflow{% else %}{{ target.project }}{% endif %}"
+    schema: raw
     
     tables:
-      - name: stg_listen_events
-        description: "Staging table for listen events"
+      - name: listen_events
+        description: "Raw listen events - songs played by users"
+        # BigQuery external table identifier (optional, for documentation)
+        # In BigQuery, this will be: project.raw.listen_events
         columns:
+          - name: event_timestamp
+            description: "When the song was played"
+            tests:
+              - not_null
           - name: user_id
             description: "Unique user identifier"
+            tests:
+              - not_null
           - name: song
             description: "Song title"
           - name: artist
             description: "Artist name"
-          - name: event_timestamp
-            description: "Event timestamp"
+          - name: city
+            description: "User's city"
+          - name: state
+            description: "User's state (2-letter code)"
+          - name: level
+            description: "Subscription level (free/paid)"
+          - name: session_id
+            description: "Session identifier"
+          - name: first_name
+            description: "User's first name"
+          - name: last_name
+            description: "User's last name"
+          - name: user_agent
+            description: "Browser/device user agent"
             
-      - name: stg_page_view_events
-        description: "Staging table for page view events"
+      - name: page_view_events
+        description: "Raw page view events"
         columns:
+          - name: event_timestamp
+            description: "When the page was viewed"
           - name: user_id
             description: "Unique user identifier"
           - name: page
-            description: "Page visited"
-          - name: event_timestamp
-            description: "Event timestamp"
+            description: "Page name visited"
             
-      - name: stg_auth_events
-        description: "Staging table for authentication events"
+      - name: auth_events
+        description: "Raw authentication events"
         columns:
+          - name: event_timestamp
+            description: "When auth event occurred"
           - name: user_id
             description: "Unique user identifier"
-          - name: auth
-            description: "Authentication status"
+          - name: success
+            description: "Whether auth was successful"
+            
+      - name: status_change_events
+        description: "User subscription status changes"
+        columns:
           - name: event_timestamp
-            description: "Event timestamp"
+            description: "When status changed"
+          - name: user_id
+            description: "Unique user identifier"
+          - name: new_level
+            description: "New subscription level"

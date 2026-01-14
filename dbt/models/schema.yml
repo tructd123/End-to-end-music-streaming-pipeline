@@ -1,0 +1,143 @@
+version: 2
+
+models:
+  # ==================== STAGING ====================
+  - name: stg_listens
+    description: "Cleaned listen events with derived time fields"
+    columns:
+      - name: event_timestamp
+        description: "When the song was played"
+        tests:
+          - not_null
+      - name: user_id
+        description: "User identifier"
+        tests:
+          - not_null
+      - name: song
+        description: "Song title"
+        tests:
+          - not_null
+      - name: artist
+        description: "Artist name"
+        tests:
+          - not_null
+      - name: subscription_level
+        description: "User subscription (free/paid)"
+        tests:
+          - accepted_values:
+              values: ['free', 'paid']
+              
+  - name: stg_page_views
+    description: "Cleaned page view events"
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+          
+  - name: stg_auth
+    description: "Cleaned authentication events"
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+          
+  - name: stg_status_changes
+    description: "User subscription status changes"
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+      - name: new_level
+        tests:
+          - accepted_values:
+              values: ['free', 'paid']
+
+  # ==================== INTERMEDIATE ====================
+  - name: int_song_stats
+    description: "Song-level aggregated metrics (grouped by song+artist)"
+    columns:
+      - name: song
+        tests:
+          - not_null
+      - name: artist
+        tests:
+          - not_null
+      - name: total_plays
+        description: "Total play count"
+        tests:
+          - not_null
+
+  - name: int_user_activity
+    description: "User-level aggregated activity"
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+          - unique
+      - name: engagement_tier
+        tests:
+          - accepted_values:
+              values: ['Power User', 'Active', 'Casual', 'New']
+
+  - name: int_daily_metrics
+    description: "Daily aggregated KPIs"
+    columns:
+      - name: event_date
+        tests:
+          - not_null
+          - unique
+
+  # ==================== MARTS ====================
+  - name: mart_top_songs
+    description: "Top 100 songs by play count"
+    columns:
+      - name: rank
+        tests:
+          - not_null
+          - unique
+      - name: song
+        tests:
+          - not_null
+      - name: total_plays
+        tests:
+          - not_null
+
+  - name: mart_active_users
+    description: "User engagement and activity summary"
+    columns:
+      - name: user_id
+        tests:
+          - not_null
+          - unique
+      - name: engagement_tier
+        tests:
+          - not_null
+
+  - name: mart_location_analytics
+    description: "Geographic distribution analytics"
+    columns:
+      - name: location
+        tests:
+          - not_null
+
+  - name: mart_hourly_metrics
+    description: "Hourly time-series metrics"
+
+  - name: mart_top_artists
+    description: "Top 100 artists by play count"
+    columns:
+      - name: rank
+        tests:
+          - not_null
+          - unique
+      - name: artist
+        tests:
+          - not_null
+
+  - name: mart_daily_summary
+    description: "Executive daily KPI summary"
+    columns:
+      - name: event_date
+        tests:
+          - not_null
+          - unique

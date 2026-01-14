@@ -1,69 +1,75 @@
 {{
     config(
         materialized='table',
-        partition_by={
-            "field": "last_active_date",
-            "data_type": "date",
-            "granularity": "day"
-        }
+        schema='marts'
     )
 }}
 
--- MART: Active Users Dashboard
--- Answers: "Người dùng nào đang active? Họ đến từ đâu?"
+/*
+    Mart: Active Users
+    - User engagement and activity summary
+    - Materialized as table for fast queries
+*/
 
-WITH user_segments AS (
-    SELECT
-        user_id,
-        first_name,
-        last_name,
-        full_name,
-        gender,
-        location,
-        subscription_level,
-        total_listens,
-        unique_songs,
-        unique_artists,
-        total_sessions,
-        total_listen_hours,
-        total_page_views,
-        avg_listens_per_session,
-        first_listen_at,
-        last_listen_at,
-        last_active_date,
-        hours_since_last_activity,
-        
-        -- User segmentation by activity
-        CASE
-            WHEN hours_since_last_activity <= {{ var('active_user_threshold_hours') }} THEN 'Active Now'
-            WHEN hours_since_last_activity <= 168 THEN 'Active This Week'
-            WHEN hours_since_last_activity <= 720 THEN 'Active This Month'
-            ELSE 'Inactive'
-        END as activity_status,
-        
-        -- User segmentation by engagement
-        CASE
-            WHEN total_listen_hours >= 50 AND unique_artists >= 20 THEN 'Super Fan'
-            WHEN total_listen_hours >= 20 AND unique_artists >= 10 THEN 'Regular Listener'
-            WHEN total_listen_hours >= 5 THEN 'Casual Listener'
-            ELSE 'New User'
-        END as engagement_tier,
-        
-        -- Extract location components
-        SPLIT(location, ',')[SAFE_OFFSET(0)] as city,
-        TRIM(SPLIT(location, ',')[SAFE_OFFSET(1)]) as state
-        
-    FROM {{ ref('int_user_activity') }}
+WITH user_activity AS (
+    SELECT * FROM {{ ref('int_user_activity') }}
 )
 
 SELECT
-    *,
-    -- Ranking
-    ROW_NUMBER() OVER (ORDER BY total_listen_hours DESC) as rank_by_listen_time,
-    ROW_NUMBER() OVER (ORDER BY total_listens DESC) as rank_by_plays,
+    user_id,
+    full_name,
+    current_level,
+    city,
+    state,
     
-    -- Activity score
-    (total_listens * 0.3 + total_listen_hours * 0.3 + unique_artists * 0.2 + total_sessions * 0.2) as engagement_score
+    -- Activity metrics
+    total_plays,
+    unique_songs,
+    unique_artists,
+    total_sessions,
+    active_days,
+    
+    -- Engagement
+    avg_plays_per_active_day,
+    avg_plays_per_session,
+    song_diversity_pct,
+    engagement_tier,
+    
+    -- Preferences
+    favorite_time,
+    preferred_days,
+    
+    -- Time breakdown
+    morning_plays,
+    afternoon_plays,
+    evening_plays,
+    night_plays,
+    weekend_plays,
+    weekday_plays,
+    
+    -- Timeline
+    first_listen_at,
+    last_listen_at,
+    listening_span_days,
+    
+    -- Recency score (days since last listen)
+    {% if target.type == 'postgres' %}
+    EXTRACT(DAY FROM (CURRENT_TIMESTAMP - last_listen_at)) AS days_since_last_listen,
+    {% elif target.type == 'bigquery' %}
+    DATE_DIFF(CURRENT_DATE(), DATE(last_listen_at), DAY) AS days_since_last_listen,
+    {% endif %}
+    
+    -- Is user still active (listened in last 7 days)?
+    CASE 
+        {% if target.type == 'postgres' %}
+        WHEN last_listen_at >= CURRENT_DATE - INTERVAL '7 days' THEN TRUE
+        {% elif target.type == 'bigquery' %}
+        WHEN last_listen_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY) THEN TRUE
+        {% endif %}
+        ELSE FALSE
+    END AS is_active,
+    
+    {{ now() }} AS updated_at
 
-FROM user_segments
-ORDER BY engagement_score DESC
+FROM user_activity
+ORDER BY total_plays DESC

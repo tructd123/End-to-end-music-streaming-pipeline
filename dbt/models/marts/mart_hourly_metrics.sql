@@ -1,61 +1,72 @@
 {{
     config(
-        materialized='table',
-        partition_by={
-            "field": "event_date",
-            "data_type": "date",
-            "granularity": "day"
-        }
+        materialized='incremental',
+        schema='marts',
+        unique_key=['event_date', 'event_hour'],
+        incremental_strategy='merge',
+        on_schema_change='sync_all_columns'
     )
 }}
 
--- MART: Hourly Metrics
--- Time-series data for real-time dashboard
+/*
+    Mart: Hourly Metrics (INCREMENTAL)
+    - Hourly aggregated KPIs for time-series dashboards
+    - Only processes new hours since last run
+    - Merge strategy: updates existing hours, inserts new ones
+*/
 
-WITH hourly_listens AS (
-    SELECT
-        event_date,
-        hour,
-        time_of_day,
-        day_of_week,
-        COUNT(*) as listen_count,
-        COUNT(DISTINCT user_id) as unique_users,
-        COUNT(DISTINCT song) as unique_songs,
-        COUNT(DISTINCT session_id) as unique_sessions,
-        SUM(duration_seconds) / 3600 as total_listen_hours
-        
-    FROM {{ ref('stg_listens') }}
-    GROUP BY 1, 2, 3, 4
+WITH listens AS (
+    SELECT * FROM {{ ref('stg_listens') }}
+    {% if is_incremental() %}
+    -- Only process data from the last 2 hours to handle late-arriving data
+    WHERE event_timestamp > (
+        SELECT {{ timestamp_sub_hours('COALESCE(MAX(hour_timestamp), ' ~ default_timestamp() ~ ')', 2) }}
+        FROM {{ this }}
+    )
+    {% endif %}
 ),
 
-hourly_page_views AS (
+hourly_stats AS (
     SELECT
         event_date,
-        hour,
-        COUNT(*) as page_view_count,
-        COUNT(DISTINCT user_id) as unique_page_viewers
+        event_hour,
+        time_of_day,
         
-    FROM {{ ref('stg_page_views') }}
-    GROUP BY 1, 2
+        -- Volume
+        COUNT(*) AS total_plays,
+        COUNT(DISTINCT user_id) AS unique_users,
+        COUNT(DISTINCT song) AS unique_songs,
+        COUNT(DISTINCT session_id) AS total_sessions,
+        
+        -- User breakdown
+        COUNT(CASE WHEN subscription_level = 'paid' THEN 1 END) AS paid_plays,
+        COUNT(CASE WHEN subscription_level = 'free' THEN 1 END) AS free_plays
+
+    FROM listens
+    GROUP BY event_date, event_hour, time_of_day
 )
 
 SELECT
-    l.event_date,
-    l.hour,
-    l.time_of_day,
-    l.day_of_week,
-    l.listen_count,
-    l.unique_users as unique_listeners,
-    l.unique_songs,
-    l.unique_sessions,
-    ROUND(l.total_listen_hours, 2) as total_listen_hours,
-    COALESCE(p.page_view_count, 0) as page_view_count,
-    COALESCE(p.unique_page_viewers, 0) as unique_page_viewers,
+    event_date,
+    event_hour,
+    time_of_day,
+    
+    -- Create timestamp for time-series
+    {{ date_add_hours('event_date', 'event_hour') }} AS hour_timestamp,
+    
+    total_plays,
+    unique_users,
+    unique_songs,
+    total_sessions,
+    paid_plays,
+    free_plays,
+    
     -- Derived metrics
-    ROUND(l.listen_count / NULLIF(l.unique_users, 0), 2) as avg_listens_per_user,
-    TIMESTAMP(DATETIME(l.event_date, TIME(l.hour, 0, 0))) as hour_timestamp
+    ROUND({{ to_numeric('total_plays') }} / NULLIF(unique_users, 0), 2) AS plays_per_user,
+    ROUND({{ to_numeric('total_plays') }} / NULLIF(total_sessions, 0), 2) AS plays_per_session,
+    ROUND({{ to_numeric('paid_plays') }} / NULLIF(total_plays, 0) * 100, 2) AS paid_ratio_pct,
+    
+    {{ now() }} AS updated_at
 
-FROM hourly_listens l
-LEFT JOIN hourly_page_views p 
-    ON l.event_date = p.event_date AND l.hour = p.hour
-ORDER BY l.event_date DESC, l.hour DESC
+FROM hourly_stats
+ORDER BY event_date DESC, event_hour DESC

@@ -1,48 +1,41 @@
 {{
     config(
         materialized='table',
-        partition_by={
-            "field": "last_played_date",
-            "data_type": "date",
-            "granularity": "day"
-        }
+        schema='marts'
     )
 }}
 
--- MART: Top Songs Dashboard
--- Answers: "Bài hát nào phổ biến nhất?"
+/*
+    Mart: Top Songs
+    - Top 100 songs ranked by total plays
+    - Materialized as table for fast dashboard queries
+*/
 
-WITH ranked_songs AS (
-    SELECT
-        song_id,
-        song,
-        artist,
-        total_plays,
-        unique_listeners,
-        unique_sessions,
-        avg_duration_seconds,
-        total_listen_time_hours,
-        first_played_at,
-        last_played_at,
-        last_played_date,
-        -- Ranking
-        ROW_NUMBER() OVER (ORDER BY total_plays DESC) as rank_by_plays,
-        ROW_NUMBER() OVER (ORDER BY unique_listeners DESC) as rank_by_listeners,
-        -- Popularity score (weighted)
-        (total_plays * 0.4 + unique_listeners * 0.4 + unique_sessions * 0.2) as popularity_score
-        
-    FROM {{ ref('int_song_stats') }}
+WITH song_stats AS (
+    SELECT * FROM {{ ref('int_song_stats') }}
 )
 
 SELECT
-    *,
-    ROW_NUMBER() OVER (ORDER BY popularity_score DESC) as overall_rank,
-    CASE
-        WHEN rank_by_plays <= 10 THEN 'Top 10'
-        WHEN rank_by_plays <= 50 THEN 'Top 50'
-        WHEN rank_by_plays <= 100 THEN 'Top 100'
-        ELSE 'Other'
-    END as popularity_tier
+    ROW_NUMBER() OVER (ORDER BY total_plays DESC) AS rank,
+    song,
+    artist,
+    total_plays,
+    unique_listeners,
+    unique_sessions,
+    paid_plays,
+    free_plays,
+    paid_ratio_pct,
+    first_played_at,
+    last_played_at,
+    days_with_plays,
+    avg_plays_per_day,
+    peak_time_of_day,
+    
+    -- Additional metrics
+    ROUND({{ to_numeric('total_plays') }} / NULLIF(unique_listeners, 0), 2) AS plays_per_listener,
+    
+    {{ now() }} AS updated_at
 
-FROM ranked_songs
-ORDER BY popularity_score DESC
+FROM song_stats
+ORDER BY total_plays DESC
+LIMIT 100

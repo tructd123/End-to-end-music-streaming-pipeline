@@ -6,12 +6,12 @@
 }}
 
 /*
-    Staging model for authentication events
-    - Cleans and standardizes raw auth event data
+    Staging model for status change events
+    - User subscription level changes (free -> paid, paid -> free)
 */
 
 WITH source AS (
-    SELECT * FROM {{ source('raw', 'auth_events') }}
+    SELECT * FROM {{ source('raw', 'status_change_events') }}
 ),
 
 cleaned AS (
@@ -19,24 +19,21 @@ cleaned AS (
         -- Primary identifiers
         event_timestamp,
         user_id,
-        session_id,
         
-        -- Auth info
-        success AS auth_success,
+        -- Status info
+        new_level,
         
         -- User info
         first_name,
         last_name,
         CONCAT(first_name, ' ', last_name) AS full_name,
-        level AS subscription_level,
         
         -- Location
         city,
         state,
         
         -- Derived time fields
-        DATE(event_timestamp) AS event_date,
-        EXTRACT(HOUR FROM event_timestamp) AS event_hour
+        DATE(event_timestamp) AS event_date
 
     FROM source
     WHERE user_id IS NOT NULL

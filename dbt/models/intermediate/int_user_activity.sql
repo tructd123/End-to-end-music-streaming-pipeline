@@ -1,85 +1,89 @@
 {{
     config(
-        materialized='incremental',
-        unique_key='user_id',
-        partition_by={
-            "field": "last_active_date",
-            "data_type": "date",
-            "granularity": "day"
-        }
+        materialized='view',
+        schema='intermediate'
     )
 }}
 
--- Intermediate model: User activity statistics
--- Aggregates all user activities
+/*
+    Intermediate model: User activity
+    - Aggregates user-level metrics from staging
+*/
 
-WITH listen_stats AS (
-    SELECT
-        user_id,
-        first_name,
-        last_name,
-        full_name,
-        gender,
-        location,
-        subscription_level,
-        COUNT(*) as total_listens,
-        COUNT(DISTINCT song) as unique_songs,
-        COUNT(DISTINCT artist) as unique_artists,
-        COUNT(DISTINCT session_id) as total_sessions,
-        SUM(duration_seconds) as total_listen_time_seconds,
-        MIN(event_timestamp) as first_listen_at,
-        MAX(event_timestamp) as last_listen_at,
-        MAX(event_date) as last_active_date
-    FROM {{ ref('stg_listens') }}
-    GROUP BY 1, 2, 3, 4, 5, 6, 7
+WITH listens AS (
+    SELECT * FROM {{ ref('stg_listens') }}
 ),
 
-page_view_stats AS (
+user_stats AS (
     SELECT
         user_id,
-        COUNT(*) as total_page_views,
-        COUNT(DISTINCT page) as unique_pages_visited
-    FROM {{ ref('stg_page_views') }}
-    GROUP BY 1
-),
+        
+        -- User info (take most recent)
+        MAX(full_name) AS full_name,
+        MAX(subscription_level) AS current_level,
+        MAX(city) AS city,
+        MAX(state) AS state,
+        
+        -- Listening activity
+        COUNT(*) AS total_plays,
+        COUNT(DISTINCT song) AS unique_songs,
+        COUNT(DISTINCT artist) AS unique_artists,
+        COUNT(DISTINCT session_id) AS total_sessions,
+        
+        -- Time range
+        MIN(event_timestamp) AS first_listen_at,
+        MAX(event_timestamp) AS last_listen_at,
+        COUNT(DISTINCT event_date) AS active_days,
+        
+        -- Calculate listening span in days
+        {% if target.type == 'postgres' %}
+        EXTRACT(DAY FROM (MAX(event_timestamp) - MIN(event_timestamp))) + 1 AS listening_span_days,
+        {% elif target.type == 'bigquery' %}
+        DATE_DIFF(DATE(MAX(event_timestamp)), DATE(MIN(event_timestamp)), DAY) + 1 AS listening_span_days,
+        {% endif %}
+        
+        -- Time preferences
+        COUNT(CASE WHEN time_of_day = 'Morning' THEN 1 END) AS morning_plays,
+        COUNT(CASE WHEN time_of_day = 'Afternoon' THEN 1 END) AS afternoon_plays,
+        COUNT(CASE WHEN time_of_day = 'Evening' THEN 1 END) AS evening_plays,
+        COUNT(CASE WHEN time_of_day = 'Night' THEN 1 END) AS night_plays,
+        
+        -- Weekend activity
+        COUNT(CASE WHEN is_weekend THEN 1 END) AS weekend_plays,
+        COUNT(CASE WHEN NOT is_weekend THEN 1 END) AS weekday_plays
 
-auth_stats AS (
-    SELECT
-        user_id,
-        COUNT(*) as total_auth_events,
-        COUNTIF(is_success) as successful_logins
-    FROM {{ ref('stg_auth') }}
-    GROUP BY 1
+    FROM listens
+    GROUP BY user_id
 )
 
-SELECT
-    l.user_id,
-    l.first_name,
-    l.last_name,
-    l.full_name,
-    l.gender,
-    l.location,
-    l.subscription_level,
-    l.total_listens,
-    l.unique_songs,
-    l.unique_artists,
-    l.total_sessions,
-    ROUND(l.total_listen_time_seconds / 3600, 2) as total_listen_hours,
-    l.first_listen_at,
-    l.last_listen_at,
-    l.last_active_date,
-    COALESCE(p.total_page_views, 0) as total_page_views,
-    COALESCE(p.unique_pages_visited, 0) as unique_pages_visited,
-    COALESCE(a.total_auth_events, 0) as total_auth_events,
-    COALESCE(a.successful_logins, 0) as successful_logins,
+SELECT 
+    *,
+    
     -- Derived metrics
-    ROUND(l.total_listens / NULLIF(l.total_sessions, 0), 2) as avg_listens_per_session,
-    TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), l.last_listen_at, HOUR) as hours_since_last_activity
+    ROUND({{ to_numeric('total_plays') }} / NULLIF(active_days, 0), 2) AS avg_plays_per_active_day,
+    ROUND({{ to_numeric('unique_songs') }} / NULLIF(total_plays, 0) * 100, 2) AS song_diversity_pct,
+    ROUND({{ to_numeric('total_plays') }} / NULLIF(total_sessions, 0), 2) AS avg_plays_per_session,
+    
+    -- Favorite time of day
+    CASE 
+        WHEN GREATEST(morning_plays, afternoon_plays, evening_plays, night_plays) = morning_plays THEN 'Morning'
+        WHEN GREATEST(morning_plays, afternoon_plays, evening_plays, night_plays) = afternoon_plays THEN 'Afternoon'
+        WHEN GREATEST(morning_plays, afternoon_plays, evening_plays, night_plays) = evening_plays THEN 'Evening'
+        ELSE 'Night'
+    END AS favorite_time,
+    
+    -- Weekend preference
+    CASE 
+        WHEN weekend_plays > weekday_plays THEN 'Weekend'
+        ELSE 'Weekday'
+    END AS preferred_days,
+    
+    -- User engagement tier
+    CASE 
+        WHEN total_plays >= 1000 THEN 'Power User'
+        WHEN total_plays >= 100 THEN 'Active'
+        WHEN total_plays >= 10 THEN 'Casual'
+        ELSE 'New'
+    END AS engagement_tier
 
-FROM listen_stats l
-LEFT JOIN page_view_stats p ON l.user_id = p.user_id
-LEFT JOIN auth_stats a ON l.user_id = a.user_id
-
-{% if is_incremental() %}
-WHERE l.last_listen_at > (SELECT MAX(last_listen_at) FROM {{ this }})
-{% endif %}
+FROM user_stats
