@@ -142,6 +142,7 @@ data/
 *.gz
 !eventsim/data/*.txt
 eventsim/data/*.gz
+/*.sql
 
 # ====================
 # Logs
