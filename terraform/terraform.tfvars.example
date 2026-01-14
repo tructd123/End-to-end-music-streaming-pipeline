@@ -1,6 +1,24 @@
-# Development environment configuration
-project_id      = "your-gcp-project-id"
-region          = "asia-southeast1"
-environment     = "dev"
-gcs_bucket_name = "music-streaming-data-lake-dev"
-bq_dataset_id   = "music_streaming_dev"
+# SoundFlow Pipeline - Terraform Variables
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required: Your GCP Project ID
+project_id = "your-gcp-project-id"
+
+# GCS bucket name (must be globally unique)
+gcs_bucket_name = "soundflow-data-lake-your-unique-suffix"
+
+# Region for resources
+region = "asia-southeast1"
+
+# BigQuery location
+bq_location = "asia-southeast1"
+
+# Environment (dev, staging, prod)
+environment = "dev"
+
+# Optional: Enable Cloud Run services
+enable_cloud_run = false
+
+# Optional: Docker images for Cloud Run (required if enable_cloud_run = true)
+# dagster_image = "gcr.io/your-project/soundflow-dagster:latest"
+# spark_image = "gcr.io/your-project/soundflow-spark:latest"

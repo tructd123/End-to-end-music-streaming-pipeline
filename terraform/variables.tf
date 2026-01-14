@@ -1,4 +1,4 @@
-# Terraform Variables for Music Streaming Pipeline
+# Terraform Variables for SoundFlow Music Streaming Pipeline
 
 variable "project_id" {
   description = "GCP Project ID"
@@ -6,7 +6,13 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "GCP Region"
+  description = "GCP Region for compute resources"
+  type        = string
+  default     = "asia-southeast1"
+}
+
+variable "bq_location" {
+  description = "BigQuery dataset location"
   type        = string
   default     = "asia-southeast1"
 }
@@ -25,11 +31,22 @@ variable "environment" {
 variable "gcs_bucket_name" {
   description = "Name of the GCS bucket for data lake"
   type        = string
-  default     = "music-streaming-data-lake"
 }
 
-variable "bq_dataset_id" {
-  description = "BigQuery dataset ID"
+variable "enable_cloud_run" {
+  description = "Enable Cloud Run services for Spark and Dagster"
+  type        = bool
+  default     = false
+}
+
+variable "dagster_image" {
+  description = "Docker image for Dagster Cloud Run service"
   type        = string
-  default     = "music_streaming"
+  default     = ""
+}
+
+variable "spark_image" {
+  description = "Docker image for Spark Streaming Cloud Run service"
+  type        = string
+  default     = ""
 }
