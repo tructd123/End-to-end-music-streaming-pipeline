@@ -186,6 +186,150 @@ For production:
 3. **Dagster**: Use Dagster Cloud
 4. **dbt**: Use dbt Cloud for scheduling
 
+---
+
+## ☁️ GCP Deployment Guide
+
+### Prerequisites
+
+- Google Cloud Platform account with billing enabled
+- `gcloud` CLI installed and authenticated
+- Terraform >= 1.0
+- Docker Desktop
+
+### Step 1: Configure GCP Environment
+
+```bash
+# Copy environment template
+cp .env.gcp.example .env.gcp
+
+# Edit with your GCP project ID
+# nano .env.gcp
+```
+
+### Step 2: Deploy Infrastructure with Terraform
+
+```bash
+cd terraform
+
+# Copy and configure variables
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your project_id
+
+# Initialize Terraform
+terraform init
+
+# Preview changes
+terraform plan
+
+# Apply infrastructure
+terraform apply
+```
+
+This creates:
+- **GCS Bucket**: Data lake for raw/processed data
+- **BigQuery Datasets**: raw, staging, intermediate, marts
+- **Pub/Sub Topics**: listen-events, page-view-events, auth-events, status-change-events
+- **Service Accounts**: For Spark, dbt, and Dagster with appropriate permissions
+
+### Step 3: Deploy Spark Streaming to GCP
+
+```bash
+# Build and push Docker image
+cd spark_streaming
+docker build -f Dockerfile.gcp -t gcr.io/YOUR_PROJECT/soundflow-spark:latest .
+docker push gcr.io/YOUR_PROJECT/soundflow-spark:latest
+
+# Deploy to Cloud Run Jobs or GKE
+# See terraform/cloud_run.tf for Cloud Run configuration
+```
+
+### Step 4: Configure dbt for BigQuery
+
+```bash
+cd dbt
+
+# Set environment
+export DBT_TARGET=prod
+export GCP_PROJECT=your-project-id
+export GOOGLE_APPLICATION_CREDENTIALS=../terraform/credentials/dbt-sa-key.json
+
+# Test connection
+dbt debug --target prod
+
+# Run models
+dbt run --target prod
+dbt test --target prod
+```
+
+### Step 5: Use the PowerShell Deployment Script (Windows)
+
+```powershell
+# Full deployment
+.\scripts\deploy_gcp.ps1
+
+# Terraform only
+.\scripts\deploy_gcp.ps1 -TerraformOnly
+
+# Skip certain steps
+.\scripts\deploy_gcp.ps1 -SkipDocker -SkipDbt
+```
+
+### GCP Architecture
+
+```
+                                   Google Cloud Platform
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐                │
+│  │  EventSim   │───▶│   Pub/Sub    │───▶│  Spark on       │                │
+│  │ (Generator) │    │   Topics     │    │  Cloud Run      │                │
+│  └─────────────┘    └──────────────┘    └────────┬────────┘                │
+│                                                  │                          │
+│                         ┌────────────────────────┘                          │
+│                         ▼                                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │                    Google Cloud Storage                          │       │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │       │
+│  │  │  raw/       │  │ checkpoints/│  │  dbt/       │              │       │
+│  │  │ - listen    │  │ - spark     │  │ - logs      │              │       │
+│  │  │ - page_view │  │ - dagster   │  │ - manifest  │              │       │
+│  │  │ - auth      │  └─────────────┘  └─────────────┘              │       │
+│  │  └──────┬──────┘                                                 │       │
+│  └─────────┼────────────────────────────────────────────────────────┘       │
+│            │                                                                 │
+│            │ External Tables                                                 │
+│            ▼                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │                         BigQuery                                 │       │
+│  │  ┌───────────┐  ┌───────────┐  ┌────────────┐  ┌─────────────┐ │       │
+│  │  │    raw    │  │  staging  │  │intermediate│  │    marts    │ │       │
+│  │  │ (external)│─▶│ (views)   │─▶│  (views)   │─▶│  (tables)   │ │       │
+│  │  └───────────┘  └───────────┘  └────────────┘  └──────┬──────┘ │       │
+│  └───────────────────────────────────────────────────────┼─────────┘       │
+│                                                          │                  │
+└──────────────────────────────────────────────────────────┼──────────────────┘
+                                                           │
+                                              ┌────────────┘
+                                              ▼
+                                   ┌─────────────────┐
+                                   │    Power BI     │
+                                   │   (Dashboard)   │
+                                   └─────────────────┘
+```
+
+### Cost Estimation (Small Scale)
+
+| Resource | Usage | Est. Monthly Cost |
+|----------|-------|-------------------|
+| GCS | 10 GB | ~$0.20 |
+| BigQuery | 50 GB storage, 1 TB query | ~$6 |
+| Pub/Sub | 10 GB | ~$0.04 |
+| Cloud Run | Minimal | ~$5 |
+| **Total** | | **~$12/month** |
+
+*Actual costs depend on usage. Use GCP Pricing Calculator for accurate estimates.*
+
 ## 📝 License
 
 MIT
