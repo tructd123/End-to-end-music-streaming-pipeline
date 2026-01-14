@@ -148,14 +148,17 @@ services:
       - POSTGRES_DB=soundflow
       - POSTGRES_USER=soundflow
       - POSTGRES_PASSWORD=soundflow123
+      - DBT_TARGET=local
+      - DAGSTER_HOME=/opt/dagster/dagster_home
     ports:
       - "3000:3000"  # Dagster UI
     volumes:
-      - ./dagster/dagster_pipeline:/app/dagster_pipeline
-      - ./dbt:/app/dbt
+      - ./dagster/dagster_pipeline:/opt/dagster/dagster_pipeline
+      - ./dagster/dagster_home:/opt/dagster/dagster_home
+      - ./dbt:/opt/dagster/dbt
     networks:
       - streaming-network
-    command: dagster-webserver -h 0.0.0.0 -p 3000
+    restart: on-failure
 
 networks:
   streaming-network:
