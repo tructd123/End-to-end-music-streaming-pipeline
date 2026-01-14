@@ -1,0 +1,4 @@
+# Workspace configuration - points to the Dagster code
+load_from:
+  - python_module:
+      module_name: dagster_pipeline

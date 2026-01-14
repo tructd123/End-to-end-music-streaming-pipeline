@@ -1,18 +1,16 @@
-load_from:
-  - python_module: dagster_pipeline
-
-run_coordinator:
-  module: dagster.core.run_coordinator
-  class: QueuedRunCoordinator
+# Dagster instance configuration
+storage:
+  sqlite:
+    base_dir: /opt/dagster/dagster_home/storage
 
 run_launcher:
   module: dagster.core.launcher
   class: DefaultRunLauncher
 
-storage:
-  sqlite:
-    base_dir: /opt/dagster/dagster_home/storage
-
 scheduler:
   module: dagster.core.scheduler
   class: DagsterDaemonScheduler
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator

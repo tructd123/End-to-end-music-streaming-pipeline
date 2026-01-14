@@ -1,7 +1,20 @@
 """
-Dagster Pipeline for Music Streaming Analytics
-Orchestrates hourly batch jobs: GCS -> BigQuery -> dbt transformations
+SoundFlow Dagster Pipeline
+===========================
+Orchestrates dbt transformations for the music streaming data pipeline.
+
+Pipeline Flow:
+1. Check raw data availability
+2. Run dbt transformations (staging → intermediate → marts)
+3. Run dbt tests for data quality
+4. Report status
+
+Schedule: Every hour at minute 15
 """
+
+import os
+import subprocess
+from pathlib import Path
 
 from dagster import (
     Definitions,
@@ -10,237 +23,361 @@ from dagster import (
     ScheduleDefinition,
     define_asset_job,
     AssetSelection,
-    Config,
-    EnvVar
+    sensor,
+    RunRequest,
+    SensorEvaluationContext,
+    DefaultSensorStatus,
+    MetadataValue,
+    Output,
+    op,
+    job,
+    schedule,
+    In,
+    Out,
+    graph,
 )
-from dagster_gcp import BigQueryResource, GCSResource
-from dagster_dbt import DbtCliResource, dbt_assets, DbtProject
-import os
-from pathlib import Path
 
-# Configuration
-GCS_BUCKET = os.getenv("GCS_BUCKET", "music-streaming-data-lake")
-GCP_PROJECT = os.getenv("GCP_PROJECT", "your-project-id")
-BQ_DATASET = os.getenv("BQ_DATASET", "music_streaming")
+# ============================================
+# CONFIGURATION
+# ============================================
 
-# dbt project path
-DBT_PROJECT_DIR = Path(__file__).parent.parent.parent / "dbt"
+# dbt project path - in Docker container
+DBT_PROJECT_DIR = Path(os.getenv("DBT_PROJECT_DIR", "/opt/dagster/dbt"))
+DBT_PROFILES_DIR = DBT_PROJECT_DIR
+
+# Environment
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "soundflow")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "soundflow")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "soundflow123")
+
+
+def get_db_connection():
+    """Create PostgreSQL connection"""
+    import psycopg2
+    return psycopg2.connect(
+        host=POSTGRES_HOST,
+        port=POSTGRES_PORT,
+        database=POSTGRES_DB,
+        user=POSTGRES_USER,
+        password=POSTGRES_PASSWORD
+    )
+
+
+def run_dbt_command(args: list, context) -> dict:
+    """Run a dbt command and return results"""
+    env = {
+        **os.environ,
+        "DBT_TARGET": "local",
+        "POSTGRES_HOST": POSTGRES_HOST,
+        "POSTGRES_PORT": POSTGRES_PORT,
+        "POSTGRES_DB": POSTGRES_DB,
+        "POSTGRES_USER": POSTGRES_USER,
+        "POSTGRES_PASSWORD": POSTGRES_PASSWORD,
+    }
+    
+    cmd = ["dbt"] + args + ["--profiles-dir", str(DBT_PROFILES_DIR)]
+    
+    context.log.info(f"Running: {' '.join(cmd)}")
+    
+    result = subprocess.run(
+        cmd,
+        cwd=str(DBT_PROJECT_DIR),
+        capture_output=True,
+        text=True,
+        env=env
+    )
+    
+    context.log.info(result.stdout)
+    
+    if result.returncode != 0:
+        context.log.error(result.stderr)
+        
+    return {
+        "success": result.returncode == 0,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "return_code": result.returncode
+    }
 
 
 # ============================================
-# ASSETS - Data Pipeline Components
+# ASSETS - Raw Data Sources
 # ============================================
 
 @asset(
-    group_name="ingestion",
-    description="Load listen events from GCS to BigQuery staging table"
+    group_name="raw",
+    description="Raw listen events from Spark Streaming",
+    compute_kind="postgres"
 )
-def stg_listen_events(
-    context: AssetExecutionContext,
-    bigquery: BigQueryResource
-) -> None:
-    """Load listen events from GCS external table to staging"""
+def raw_listen_events(context: AssetExecutionContext) -> Output[int]:
+    """Check raw listen events table"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM raw.listen_events")
+    count = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
     
-    query = f"""
-    CREATE OR REPLACE TABLE `{GCP_PROJECT}.{BQ_DATASET}.stg_listen_events` AS
-    SELECT 
-        ts,
-        event_timestamp,
-        userId as user_id,
-        sessionId as session_id,
-        song,
-        artist,
-        duration,
-        level,
-        firstName as first_name,
-        lastName as last_name,
-        gender,
-        location,
-        lat as latitude,
-        lng as longitude,
-        userAgent as user_agent,
-        processed_at,
-        year,
-        month,
-        day,
-        hour
-    FROM `{GCP_PROJECT}.{BQ_DATASET}.external_listen_events`
-    WHERE processed_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
-    """
+    context.log.info(f"raw.listen_events: {count} rows")
     
-    with bigquery.get_client() as client:
-        job = client.query(query)
-        job.result()
-        context.log.info(f"Loaded {job.num_dml_affected_rows} rows to stg_listen_events")
+    return Output(
+        count,
+        metadata={
+            "row_count": MetadataValue.int(count),
+            "table": MetadataValue.text("raw.listen_events")
+        }
+    )
 
 
 @asset(
-    group_name="ingestion",
-    description="Load page view events from GCS to BigQuery staging table"
+    group_name="raw",
+    description="Raw status change events",
+    compute_kind="postgres"
 )
-def stg_page_view_events(
-    context: AssetExecutionContext,
-    bigquery: BigQueryResource
-) -> None:
-    """Load page view events from GCS external table to staging"""
+def raw_status_change_events(context: AssetExecutionContext) -> Output[int]:
+    """Check raw status change events table"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM raw.status_change_events")
+    count = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
     
-    query = f"""
-    CREATE OR REPLACE TABLE `{GCP_PROJECT}.{BQ_DATASET}.stg_page_view_events` AS
-    SELECT 
-        ts,
-        event_timestamp,
-        userId as user_id,
-        sessionId as session_id,
-        page,
-        method,
-        status,
-        level,
-        auth,
-        firstName as first_name,
-        lastName as last_name,
-        gender,
-        location,
-        lat as latitude,
-        lng as longitude,
-        userAgent as user_agent,
-        processed_at,
-        year,
-        month,
-        day,
-        hour
-    FROM `{GCP_PROJECT}.{BQ_DATASET}.external_page_view_events`
-    WHERE processed_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
-    """
+    context.log.info(f"raw.status_change_events: {count} rows")
     
-    with bigquery.get_client() as client:
-        job = client.query(query)
-        job.result()
-        context.log.info(f"Loaded {job.num_dml_affected_rows} rows to stg_page_view_events")
+    return Output(
+        count,
+        metadata={
+            "row_count": MetadataValue.int(count),
+            "table": MetadataValue.text("raw.status_change_events")
+        }
+    )
+
+
+# ============================================
+# ASSETS - dbt Models
+# ============================================
+
+@asset(
+    group_name="staging",
+    deps=[raw_listen_events, raw_status_change_events],
+    description="dbt staging models",
+    compute_kind="dbt"
+)
+def dbt_staging(context: AssetExecutionContext) -> Output[dict]:
+    """Run dbt staging models"""
+    result = run_dbt_command(["run", "--select", "staging"], context)
+    
+    if not result["success"]:
+        raise Exception(f"dbt staging failed: {result['stderr']}")
+    
+    return Output(
+        result,
+        metadata={
+            "status": MetadataValue.text("success" if result["success"] else "failed"),
+            "models": MetadataValue.text("stg_listens, stg_page_views, stg_auth, stg_status_changes")
+        }
+    )
 
 
 @asset(
-    group_name="ingestion", 
-    description="Load auth events from GCS to BigQuery staging table"
+    group_name="intermediate",
+    deps=[dbt_staging],
+    description="dbt intermediate models",
+    compute_kind="dbt"
 )
-def stg_auth_events(
-    context: AssetExecutionContext,
-    bigquery: BigQueryResource
-) -> None:
-    """Load auth events from GCS external table to staging"""
+def dbt_intermediate(context: AssetExecutionContext) -> Output[dict]:
+    """Run dbt intermediate models"""
+    result = run_dbt_command(["run", "--select", "intermediate"], context)
     
-    query = f"""
-    CREATE OR REPLACE TABLE `{GCP_PROJECT}.{BQ_DATASET}.stg_auth_events` AS
-    SELECT 
-        ts,
-        event_timestamp,
-        userId as user_id,
-        sessionId as session_id,
-        page,
-        auth,
-        level,
-        firstName as first_name,
-        lastName as last_name,
-        gender,
-        location,
-        userAgent as user_agent,
-        success,
-        processed_at,
-        year,
-        month,
-        day,
-        hour
-    FROM `{GCP_PROJECT}.{BQ_DATASET}.external_auth_events`
-    WHERE processed_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
+    if not result["success"]:
+        raise Exception(f"dbt intermediate failed: {result['stderr']}")
+    
+    return Output(
+        result,
+        metadata={
+            "status": MetadataValue.text("success" if result["success"] else "failed"),
+            "models": MetadataValue.text("int_song_stats, int_user_activity, int_daily_metrics")
+        }
+    )
+
+
+@asset(
+    group_name="marts",
+    deps=[dbt_intermediate],
+    description="dbt marts models",
+    compute_kind="dbt"
+)
+def dbt_marts(context: AssetExecutionContext) -> Output[dict]:
+    """Run dbt marts models"""
+    result = run_dbt_command(["run", "--select", "marts"], context)
+    
+    if not result["success"]:
+        raise Exception(f"dbt marts failed: {result['stderr']}")
+    
+    return Output(
+        result,
+        metadata={
+            "status": MetadataValue.text("success" if result["success"] else "failed"),
+            "models": MetadataValue.text("mart_top_songs, mart_active_users, mart_location_analytics, mart_hourly_metrics, mart_top_artists, mart_daily_summary")
+        }
+    )
+
+
+@asset(
+    group_name="quality",
+    deps=[dbt_marts],
+    description="dbt tests for data quality",
+    compute_kind="dbt"
+)
+def dbt_tests(context: AssetExecutionContext) -> Output[dict]:
+    """Run dbt tests"""
+    result = run_dbt_command(["test"], context)
+    
+    return Output(
+        result,
+        metadata={
+            "tests_passed": MetadataValue.bool(result["success"]),
+            "output": MetadataValue.text(result["stdout"][:500] if result["stdout"] else "No output")
+        }
+    )
+
+
+# ============================================
+# JOBS
+# ============================================
+
+# Job to run all dbt transformations (full refresh for ranking tables)
+dbt_full_refresh_job = define_asset_job(
+    name="dbt_full_refresh",
+    selection=[
+        raw_listen_events,
+        raw_status_change_events,
+        dbt_staging,
+        dbt_intermediate,
+        dbt_marts,
+        dbt_tests
+    ],
+    description="Run complete dbt transformation pipeline (full refresh)"
+)
+
+# Job to run only marts (incremental - fast updates)
+dbt_incremental_job = define_asset_job(
+    name="dbt_incremental",
+    selection=[dbt_marts, dbt_tests],
+    description="Run incremental marts update (fast, for near real-time)"
+)
+
+
+# ============================================
+# SCHEDULES
+# ============================================
+
+# Every 5 minutes - incremental update for time-series marts
+frequent_incremental_schedule = ScheduleDefinition(
+    job=dbt_incremental_job,
+    cron_schedule="*/5 * * * *",  # Every 5 minutes
+    name="frequent_incremental_update",
+    description="Run incremental marts every 5 minutes for near real-time analytics"
+)
+
+# Hourly schedule - run full pipeline at minute 15 every hour
+hourly_dbt_schedule = ScheduleDefinition(
+    job=dbt_full_refresh_job,
+    cron_schedule="15 * * * *",  # Every hour at :15
+    name="hourly_dbt_transformations",
+    description="Run dbt transformations every hour at minute 15"
+)
+
+# Daily schedule - run at 2 AM
+daily_dbt_schedule = ScheduleDefinition(
+    job=dbt_full_refresh_job,
+    cron_schedule="0 2 * * *",  # 2 AM daily
+    name="daily_dbt_transformations",
+    description="Run full dbt transformations at 2 AM daily"
+)
+
+
+# ============================================
+# SENSORS
+# ============================================
+
+@sensor(
+    job=dbt_incremental_job,
+    minimum_interval_seconds=60,  # Check every 1 minute
+    default_status=DefaultSensorStatus.STOPPED,  # Start manually via UI
+)
+def new_data_sensor(context: SensorEvaluationContext):
     """
+    Sensor that triggers incremental dbt when new data arrives.
     
-    with bigquery.get_client() as client:
-        job = client.query(query)
-        job.result()
-        context.log.info(f"Loaded {job.num_dml_affected_rows} rows to stg_auth_events")
+    - Polls PostgreSQL every 60 seconds
+    - Checks latest timestamp in raw.listen_events
+    - Triggers incremental job if new data detected
+    - Uses cursor to track last processed timestamp
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get latest event timestamp
+        cursor.execute("""
+            SELECT MAX(event_timestamp) 
+            FROM raw.listen_events
+        """)
+        latest_ts = cursor.fetchone()[0]
+        
+        cursor.close()
+        conn.close()
+        
+        if latest_ts is None:
+            context.log.info("No data in raw.listen_events yet")
+            return
+        
+        latest_ts_str = str(latest_ts)
+        
+        # Check if this is new data
+        last_processed = context.cursor
+        
+        if last_processed is None or latest_ts_str > last_processed:
+            context.log.info(f"New data detected: {latest_ts_str}")
+            yield RunRequest(
+                run_key=latest_ts_str,
+                run_config={},
+            )
+            context.update_cursor(latest_ts_str)
+        else:
+            context.log.info(f"No new data. Last: {last_processed}, Current: {latest_ts_str}")
+            
+    except Exception as e:
+        context.log.error(f"Sensor error: {e}")
 
 
 # ============================================
-# DBT ASSETS - Transformations
-# ============================================
-
-# dbt project configuration
-dbt_project = DbtProject(
-    project_dir=DBT_PROJECT_DIR,
-)
-
-@dbt_assets(manifest=dbt_project.manifest_path)
-def dbt_models(context: AssetExecutionContext, dbt: DbtCliResource):
-    """Run dbt models for data transformation"""
-    yield from dbt.cli(["build"], context=context).stream()
-
-
-# ============================================
-# JOBS & SCHEDULES
-# ============================================
-
-# Job to run all ingestion assets
-ingestion_job = define_asset_job(
-    name="hourly_ingestion_job",
-    selection=AssetSelection.groups("ingestion"),
-    description="Load data from GCS to BigQuery staging tables"
-)
-
-# Job to run dbt transformations
-transformation_job = define_asset_job(
-    name="hourly_transformation_job",
-    selection=AssetSelection.all() - AssetSelection.groups("ingestion"),
-    description="Run dbt transformations"
-)
-
-# Full pipeline job
-full_pipeline_job = define_asset_job(
-    name="full_pipeline_job",
-    selection=AssetSelection.all(),
-    description="Run full data pipeline: ingestion + transformation"
-)
-
-# Hourly schedule
-hourly_schedule = ScheduleDefinition(
-    job=full_pipeline_job,
-    cron_schedule="0 * * * *",  # Every hour
-    execution_timezone="Asia/Ho_Chi_Minh",
-)
-
-
-# ============================================
-# RESOURCES
-# ============================================
-
-resources = {
-    "bigquery": BigQueryResource(
-        project=EnvVar("GCP_PROJECT"),
-        location="asia-southeast1",
-    ),
-    "gcs": GCSResource(
-        project=EnvVar("GCP_PROJECT"),
-    ),
-    "dbt": DbtCliResource(
-        project_dir=dbt_project,
-    ),
-}
-
-
-# ============================================
-# DEFINITIONS
+# DEFINITIONS (Main entry point)
 # ============================================
 
 defs = Definitions(
     assets=[
-        stg_listen_events,
-        stg_page_view_events, 
-        stg_auth_events,
-        dbt_models,
+        raw_listen_events,
+        raw_status_change_events,
+        dbt_staging,
+        dbt_intermediate,
+        dbt_marts,
+        dbt_tests,
     ],
     jobs=[
-        ingestion_job,
-        transformation_job,
-        full_pipeline_job,
+        dbt_full_refresh_job,
+        dbt_incremental_job,
     ],
-    schedules=[hourly_schedule],
-    resources=resources,
+    schedules=[
+        frequent_incremental_schedule,  # Every 5 min - incremental
+        hourly_dbt_schedule,            # Hourly - full refresh
+        daily_dbt_schedule,             # Daily at 2 AM - full refresh
+    ],
+    sensors=[
+        new_data_sensor,
+    ],
 )
