@@ -72,6 +72,13 @@ resource "google_project_iam_member" "spark_pubsub_subscriber" {
   member  = "serviceAccount:${google_service_account.spark_sa.email}"
 }
 
+# Dataproc Worker role - REQUIRED for Dataproc cluster
+resource "google_project_iam_member" "spark_dataproc_worker" {
+  project = var.project_id
+  role    = "roles/dataproc.worker"
+  member  = "serviceAccount:${google_service_account.spark_sa.email}"
+}
+
 # BigQuery for writing to tables (optional direct write)
 resource "google_project_iam_member" "spark_bq_data_editor" {
   project = var.project_id
