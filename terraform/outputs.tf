@@ -98,3 +98,25 @@ output "spark_config" {
     pubsub_project      = var.project_id
   }
 }
+
+# ============================================
+# Dataproc Outputs
+# ============================================
+output "dataproc_cluster" {
+  description = "Dataproc cluster information"
+  value = var.enable_dataproc ? {
+    name           = google_dataproc_cluster.spark_streaming[0].name
+    region         = var.region
+    master_type    = var.dataproc_master_machine_type
+    num_workers    = var.dataproc_num_workers
+    worker_type    = var.dataproc_worker_machine_type
+    web_ui         = "https://console.cloud.google.com/dataproc/clusters/${google_dataproc_cluster.spark_streaming[0].name}/monitoring?project=${var.project_id}&region=${var.region}"
+    jupyter_url    = "https://${google_dataproc_cluster.spark_streaming[0].name}-m.${var.region}-a.c.${var.project_id}.internal:8123"
+    spark_app_path = "gs://${google_storage_bucket.data_lake.name}/spark-apps/streaming_to_gcs_pubsub.py"
+  } : null
+}
+
+output "dataproc_submit_command" {
+  description = "Command to submit Spark streaming job"
+  value = var.enable_dataproc ? "gcloud dataproc jobs submit pyspark gs://${google_storage_bucket.data_lake.name}/spark-apps/streaming_to_gcs_pubsub.py --project=${var.project_id} --region=${var.region} --cluster=soundflow-spark-${var.environment} --properties=\"spark.jars.packages=com.google.cloud.spark:spark-pubsub_2.12:0.21.0\"" : "Dataproc not enabled. Set enable_dataproc=true to create cluster."
+}

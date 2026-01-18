@@ -22,3 +22,31 @@ enable_cloud_run = false
 # Optional: Docker images for Cloud Run (required if enable_cloud_run = true)
 # dagster_image = "gcr.io/your-project/soundflow-dagster:latest"
 # spark_image = "gcr.io/your-project/soundflow-spark:latest"
+
+# ==============================================================================
+# DATAPROC CONFIGURATION (Recommended for Spark Streaming)
+# ==============================================================================
+
+# Enable Dataproc cluster for Spark Streaming
+enable_dataproc = true
+
+# Master node configuration
+dataproc_master_machine_type = "n1-standard-4"  # 4 vCPU, 15GB RAM
+dataproc_master_disk_size    = 100              # GB
+
+# Worker nodes configuration
+dataproc_worker_machine_type = "n1-standard-4"  # 4 vCPU, 15GB RAM
+dataproc_worker_disk_size    = 100              # GB
+dataproc_num_workers         = 2
+
+# Cost optimization: Use preemptible workers (optional)
+dataproc_num_preemptible_workers = 0
+
+# Security: Use internal IP only (recommended for production)
+dataproc_internal_ip_only = false
+
+# Autoscaling (optional)
+enable_dataproc_autoscaling = false
+
+# Workflow template for batch processing (optional)
+enable_workflow_template = false
