@@ -159,8 +159,9 @@ def read_pubsub_stream(spark, subscription):
 def read_stream(spark, topic_name):
     """Read stream from configured source (Kafka or Pub/Sub)"""
     if SOURCE_TYPE == "pubsub":
-        # Pub/Sub subscription name format: spark-{topic}-sub
-        subscription = f"{PUBSUB_SUBSCRIPTION_PREFIX}-{topic_name.replace('_', '-')}-sub"
+        # Pub/Sub subscription name format: {topic}-spark-sub
+        # e.g., listen_events -> listen-events-spark-sub
+        subscription = f"{topic_name.replace('_', '-')}-{PUBSUB_SUBSCRIPTION_PREFIX}-sub"
         return read_pubsub_stream(spark, subscription)
     else:
         return read_kafka_stream(spark, topic_name)
