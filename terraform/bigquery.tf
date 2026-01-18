@@ -103,8 +103,13 @@ resource "google_bigquery_dataset" "marts" {
 # ============================================
 # EXTERNAL TABLES - Raw data from GCS
 # ============================================
+# NOTE: External tables are disabled by default because they require
+# existing parquet files in GCS. Enable them after Spark streaming
+# has written data to GCS by setting enable_external_tables = true.
+# ============================================
 
 resource "google_bigquery_table" "external_listen_events" {
+  count               = var.enable_external_tables ? 1 : 0
   dataset_id          = google_bigquery_dataset.raw.dataset_id
   table_id            = "listen_events"
   deletion_protection = false
@@ -128,6 +133,7 @@ resource "google_bigquery_table" "external_listen_events" {
 }
 
 resource "google_bigquery_table" "external_page_view_events" {
+  count               = var.enable_external_tables ? 1 : 0
   dataset_id          = google_bigquery_dataset.raw.dataset_id
   table_id            = "page_view_events"
   deletion_protection = false
@@ -151,6 +157,7 @@ resource "google_bigquery_table" "external_page_view_events" {
 }
 
 resource "google_bigquery_table" "external_auth_events" {
+  count               = var.enable_external_tables ? 1 : 0
   dataset_id          = google_bigquery_dataset.raw.dataset_id
   table_id            = "auth_events"
   deletion_protection = false
@@ -174,6 +181,7 @@ resource "google_bigquery_table" "external_auth_events" {
 }
 
 resource "google_bigquery_table" "external_status_change_events" {
+  count               = var.enable_external_tables ? 1 : 0
   dataset_id          = google_bigquery_dataset.raw.dataset_id
   table_id            = "status_change_events"
   deletion_protection = false
