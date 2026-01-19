@@ -21,8 +21,12 @@ user_stats AS (
         -- User info (take most recent)
         MAX(full_name) AS full_name,
         MAX(subscription_level) AS current_level,
+        {% if target.type == 'bigquery' %}
+        MAX(location) AS location,
+        {% else %}
         MAX(city) AS city,
         MAX(state) AS state,
+        {% endif %}
         
         -- Listening activity
         COUNT(*) AS total_plays,

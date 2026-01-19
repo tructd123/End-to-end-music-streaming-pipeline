@@ -3,23 +3,24 @@ SoundFlow Dagster Pipeline
 ===========================
 Orchestrates dbt transformations for the music streaming data pipeline.
 
+Supports:
+- Local development (PostgreSQL)
+- Production (BigQuery on GCP)
+
 Pipeline Flow:
 1. Check raw data availability
 2. Run dbt transformations (staging → intermediate → marts)
 3. Run dbt tests for data quality
 4. Report status
 
-Schedule: Every hour at minute 15
+Schedule: Configurable (5-minute incremental, hourly full refresh)
 """
 
 import os
-import subprocess
 from pathlib import Path
 
 from dagster import (
     Definitions,
-    asset,
-    AssetExecutionContext,
     ScheduleDefinition,
     define_asset_job,
     AssetSelection,
@@ -27,247 +28,121 @@ from dagster import (
     RunRequest,
     SensorEvaluationContext,
     DefaultSensorStatus,
-    MetadataValue,
-    Output,
-    op,
-    job,
-    schedule,
-    In,
-    Out,
-    graph,
 )
 
-# ============================================
-# CONFIGURATION
-# ============================================
+# Import assets
+from .assets.dbt_assets import (
+    dbt_staging_models,
+    dbt_intermediate_models,
+    dbt_marts_models,
+    dbt_test_results,
+    dbt_docs,
+    DbtConfig,
+)
 
-# dbt project path - in Docker container
-DBT_PROJECT_DIR = Path(os.getenv("DBT_PROJECT_DIR", "/opt/dagster/dbt"))
-DBT_PROFILES_DIR = DBT_PROJECT_DIR
+from .assets.bigquery_assets import (
+    bq_raw_listen_events,
+    bq_raw_page_view_events,
+    bq_raw_auth_events,
+    bq_raw_status_change_events,
+    validate_mart_top_songs,
+    validate_mart_active_users,
+)
 
-# Environment
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.getenv("POSTGRES_DB", "soundflow")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "soundflow")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "soundflow123")
-
-
-def get_db_connection():
-    """Create PostgreSQL connection"""
-    import psycopg2
-    return psycopg2.connect(
-        host=POSTGRES_HOST,
-        port=POSTGRES_PORT,
-        database=POSTGRES_DB,
-        user=POSTGRES_USER,
-        password=POSTGRES_PASSWORD
-    )
-
-
-def run_dbt_command(args: list, context) -> dict:
-    """Run a dbt command and return results"""
-    env = {
-        **os.environ,
-        "DBT_TARGET": "local",
-        "POSTGRES_HOST": POSTGRES_HOST,
-        "POSTGRES_PORT": POSTGRES_PORT,
-        "POSTGRES_DB": POSTGRES_DB,
-        "POSTGRES_USER": POSTGRES_USER,
-        "POSTGRES_PASSWORD": POSTGRES_PASSWORD,
-    }
-    
-    cmd = ["dbt"] + args + ["--profiles-dir", str(DBT_PROFILES_DIR)]
-    
-    context.log.info(f"Running: {' '.join(cmd)}")
-    
-    result = subprocess.run(
-        cmd,
-        cwd=str(DBT_PROJECT_DIR),
-        capture_output=True,
-        text=True,
-        env=env
-    )
-    
-    context.log.info(result.stdout)
-    
-    if result.returncode != 0:
-        context.log.error(result.stderr)
-        
-    return {
-        "success": result.returncode == 0,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
-        "return_code": result.returncode
-    }
+from .assets.spark_assets import (
+    spark_job_status,
+    gcs_data_freshness,
+)
 
 
 # ============================================
-# ASSETS - Raw Data Sources
+# ALL ASSETS
 # ============================================
 
-@asset(
-    group_name="raw",
-    description="Raw listen events from Spark Streaming",
-    compute_kind="postgres"
-)
-def raw_listen_events(context: AssetExecutionContext) -> Output[int]:
-    """Check raw listen events table"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM raw.listen_events")
-    count = cursor.fetchone()[0]
-    cursor.close()
-    conn.close()
-    
-    context.log.info(f"raw.listen_events: {count} rows")
-    
-    return Output(
-        count,
-        metadata={
-            "row_count": MetadataValue.int(count),
-            "table": MetadataValue.text("raw.listen_events")
-        }
-    )
+all_dbt_assets = [
+    dbt_staging_models,
+    dbt_intermediate_models,
+    dbt_marts_models,
+    dbt_test_results,
+    dbt_docs,
+]
 
+all_bigquery_assets = [
+    bq_raw_listen_events,
+    bq_raw_page_view_events,
+    bq_raw_auth_events,
+    bq_raw_status_change_events,
+    validate_mart_top_songs,
+    validate_mart_active_users,
+]
 
-@asset(
-    group_name="raw",
-    description="Raw status change events",
-    compute_kind="postgres"
-)
-def raw_status_change_events(context: AssetExecutionContext) -> Output[int]:
-    """Check raw status change events table"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM raw.status_change_events")
-    count = cursor.fetchone()[0]
-    cursor.close()
-    conn.close()
-    
-    context.log.info(f"raw.status_change_events: {count} rows")
-    
-    return Output(
-        count,
-        metadata={
-            "row_count": MetadataValue.int(count),
-            "table": MetadataValue.text("raw.status_change_events")
-        }
-    )
-
-
-# ============================================
-# ASSETS - dbt Models
-# ============================================
-
-@asset(
-    group_name="staging",
-    deps=[raw_listen_events, raw_status_change_events],
-    description="dbt staging models",
-    compute_kind="dbt"
-)
-def dbt_staging(context: AssetExecutionContext) -> Output[dict]:
-    """Run dbt staging models"""
-    result = run_dbt_command(["run", "--select", "staging"], context)
-    
-    if not result["success"]:
-        raise Exception(f"dbt staging failed: {result['stderr']}")
-    
-    return Output(
-        result,
-        metadata={
-            "status": MetadataValue.text("success" if result["success"] else "failed"),
-            "models": MetadataValue.text("stg_listens, stg_page_views, stg_auth, stg_status_changes")
-        }
-    )
-
-
-@asset(
-    group_name="intermediate",
-    deps=[dbt_staging],
-    description="dbt intermediate models",
-    compute_kind="dbt"
-)
-def dbt_intermediate(context: AssetExecutionContext) -> Output[dict]:
-    """Run dbt intermediate models"""
-    result = run_dbt_command(["run", "--select", "intermediate"], context)
-    
-    if not result["success"]:
-        raise Exception(f"dbt intermediate failed: {result['stderr']}")
-    
-    return Output(
-        result,
-        metadata={
-            "status": MetadataValue.text("success" if result["success"] else "failed"),
-            "models": MetadataValue.text("int_song_stats, int_user_activity, int_daily_metrics")
-        }
-    )
-
-
-@asset(
-    group_name="marts",
-    deps=[dbt_intermediate],
-    description="dbt marts models",
-    compute_kind="dbt"
-)
-def dbt_marts(context: AssetExecutionContext) -> Output[dict]:
-    """Run dbt marts models"""
-    result = run_dbt_command(["run", "--select", "marts"], context)
-    
-    if not result["success"]:
-        raise Exception(f"dbt marts failed: {result['stderr']}")
-    
-    return Output(
-        result,
-        metadata={
-            "status": MetadataValue.text("success" if result["success"] else "failed"),
-            "models": MetadataValue.text("mart_top_songs, mart_active_users, mart_location_analytics, mart_hourly_metrics, mart_top_artists, mart_daily_summary")
-        }
-    )
-
-
-@asset(
-    group_name="quality",
-    deps=[dbt_marts],
-    description="dbt tests for data quality",
-    compute_kind="dbt"
-)
-def dbt_tests(context: AssetExecutionContext) -> Output[dict]:
-    """Run dbt tests"""
-    result = run_dbt_command(["test"], context)
-    
-    return Output(
-        result,
-        metadata={
-            "tests_passed": MetadataValue.bool(result["success"]),
-            "output": MetadataValue.text(result["stdout"][:500] if result["stdout"] else "No output")
-        }
-    )
+all_spark_assets = [
+    spark_job_status,
+    gcs_data_freshness,
+]
 
 
 # ============================================
 # JOBS
 # ============================================
 
-# Job to run all dbt transformations (full refresh for ranking tables)
-dbt_full_refresh_job = define_asset_job(
-    name="dbt_full_refresh",
-    selection=[
-        raw_listen_events,
-        raw_status_change_events,
-        dbt_staging,
-        dbt_intermediate,
-        dbt_marts,
-        dbt_tests
-    ],
-    description="Run complete dbt transformation pipeline (full refresh)"
+# Full dbt pipeline (staging → intermediate → marts → tests)
+dbt_full_pipeline_job = define_asset_job(
+    name="dbt_full_pipeline",
+    selection=AssetSelection.assets(*all_dbt_assets),
+    description="Run complete dbt transformation pipeline",
+    config={
+        "ops": {
+            "dbt_staging_models": {"config": {"target": "prod"}},
+            "dbt_intermediate_models": {"config": {"target": "prod"}},
+            "dbt_marts_models": {"config": {"target": "prod"}},
+            "dbt_test_results": {"config": {"target": "prod"}},
+            "dbt_docs": {"config": {"target": "prod"}},
+        }
+    }
 )
 
-# Job to run only marts (incremental - fast updates)
-dbt_incremental_job = define_asset_job(
-    name="dbt_incremental",
-    selection=[dbt_marts, dbt_tests],
-    description="Run incremental marts update (fast, for near real-time)"
+# Local dbt pipeline (for development)
+dbt_local_pipeline_job = define_asset_job(
+    name="dbt_local_pipeline",
+    selection=AssetSelection.assets(*all_dbt_assets),
+    description="Run dbt pipeline locally (PostgreSQL)",
+    config={
+        "ops": {
+            "dbt_staging_models": {"config": {"target": "local"}},
+            "dbt_intermediate_models": {"config": {"target": "local"}},
+            "dbt_marts_models": {"config": {"target": "local"}},
+            "dbt_test_results": {"config": {"target": "local"}},
+            "dbt_docs": {"config": {"target": "local"}},
+        }
+    }
+)
+
+# Incremental marts only (for frequent updates)
+dbt_marts_only_job = define_asset_job(
+    name="dbt_marts_only",
+    selection=AssetSelection.assets(dbt_marts_models, dbt_test_results),
+    description="Run only marts (incremental) and tests",
+    config={
+        "ops": {
+            "dbt_marts_models": {"config": {"target": "prod"}},
+            "dbt_test_results": {"config": {"target": "prod"}},
+        }
+    }
+)
+
+# BigQuery validation job
+bigquery_validation_job = define_asset_job(
+    name="bigquery_validation",
+    selection=AssetSelection.assets(*all_bigquery_assets),
+    description="Validate BigQuery raw data and marts"
+)
+
+# Infrastructure check job
+infrastructure_check_job = define_asset_job(
+    name="infrastructure_check",
+    selection=AssetSelection.assets(*all_spark_assets),
+    description="Check Spark/GCS infrastructure status"
 )
 
 
@@ -275,28 +150,36 @@ dbt_incremental_job = define_asset_job(
 # SCHEDULES
 # ============================================
 
-# Every 5 minutes - incremental update for time-series marts
-frequent_incremental_schedule = ScheduleDefinition(
-    job=dbt_incremental_job,
-    cron_schedule="*/5 * * * *",  # Every 5 minutes
-    name="frequent_incremental_update",
-    description="Run incremental marts every 5 minutes for near real-time analytics"
+# Every 15 minutes - incremental marts update
+frequent_marts_schedule = ScheduleDefinition(
+    job=dbt_marts_only_job,
+    cron_schedule="*/15 * * * *",
+    name="frequent_marts_update",
+    description="Update marts every 15 minutes (incremental)"
 )
 
-# Hourly schedule - run full pipeline at minute 15 every hour
-hourly_dbt_schedule = ScheduleDefinition(
-    job=dbt_full_refresh_job,
-    cron_schedule="15 * * * *",  # Every hour at :15
-    name="hourly_dbt_transformations",
-    description="Run dbt transformations every hour at minute 15"
+# Hourly - full dbt pipeline
+hourly_full_pipeline_schedule = ScheduleDefinition(
+    job=dbt_full_pipeline_job,
+    cron_schedule="0 * * * *",
+    name="hourly_full_pipeline",
+    description="Run full dbt pipeline every hour at minute 0"
 )
 
-# Daily schedule - run at 2 AM
-daily_dbt_schedule = ScheduleDefinition(
-    job=dbt_full_refresh_job,
-    cron_schedule="0 2 * * *",  # 2 AM daily
-    name="daily_dbt_transformations",
-    description="Run full dbt transformations at 2 AM daily"
+# Daily at 2 AM - full pipeline with docs
+daily_full_pipeline_schedule = ScheduleDefinition(
+    job=dbt_full_pipeline_job,
+    cron_schedule="0 2 * * *",
+    name="daily_full_pipeline",
+    description="Run full dbt pipeline with docs at 2 AM daily"
+)
+
+# Every 30 minutes - BigQuery validation
+bigquery_validation_schedule = ScheduleDefinition(
+    job=bigquery_validation_job,
+    cron_schedule="*/30 * * * *",
+    name="bigquery_validation_check",
+    description="Validate BigQuery data every 30 minutes"
 )
 
 
@@ -305,51 +188,49 @@ daily_dbt_schedule = ScheduleDefinition(
 # ============================================
 
 @sensor(
-    job=dbt_incremental_job,
-    minimum_interval_seconds=60,  # Check every 1 minute
-    default_status=DefaultSensorStatus.STOPPED,  # Start manually via UI
+    job=dbt_full_pipeline_job,
+    minimum_interval_seconds=300,  # Check every 5 minutes
+    default_status=DefaultSensorStatus.STOPPED,
 )
-def new_data_sensor(context: SensorEvaluationContext):
+def gcs_new_data_sensor(context: SensorEvaluationContext):
     """
-    Sensor that triggers incremental dbt when new data arrives.
+    Sensor that triggers dbt pipeline when new data arrives in GCS.
     
-    - Polls PostgreSQL every 60 seconds
-    - Checks latest timestamp in raw.listen_events
-    - Triggers incremental job if new data detected
-    - Uses cursor to track last processed timestamp
+    Monitors GCS for new Parquet files and triggers transformation
+    when fresh data is detected.
     """
+    from google.cloud import storage
+    from datetime import datetime, timedelta
+    
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        project_id = os.getenv("GCP_PROJECT", "graphic-boulder-483814-g7")
+        bucket_name = os.getenv("GCS_BUCKET", "tf-state-soundflow-123")
         
-        # Get latest event timestamp
-        cursor.execute("""
-            SELECT MAX(event_timestamp) 
-            FROM raw.listen_events
-        """)
-        latest_ts = cursor.fetchone()[0]
+        credentials_path = os.getenv(
+            "GOOGLE_APPLICATION_CREDENTIALS",
+            str(Path(__file__).parent.parent.parent / "credentials" / "dbt-sa-key.json")
+        )
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
         
-        cursor.close()
-        conn.close()
+        client = storage.Client(project=project_id)
+        bucket = client.bucket(bucket_name)
         
-        if latest_ts is None:
-            context.log.info("No data in raw.listen_events yet")
-            return
+        # Check for files modified in last 10 minutes
+        cutoff = datetime.utcnow() - timedelta(minutes=10)
         
-        latest_ts_str = str(latest_ts)
+        # Look for listen_events (primary data source)
+        blobs = list(bucket.list_blobs(prefix="raw/listen_events/", max_results=50))
         
-        # Check if this is new data
-        last_processed = context.cursor
+        recent_files = [b for b in blobs if b.updated.replace(tzinfo=None) > cutoff]
         
-        if last_processed is None or latest_ts_str > last_processed:
-            context.log.info(f"New data detected: {latest_ts_str}")
-            yield RunRequest(
-                run_key=latest_ts_str,
-                run_config={},
-            )
-            context.update_cursor(latest_ts_str)
+        if recent_files:
+            latest = max(recent_files, key=lambda b: b.updated)
+            run_key = f"gcs_{latest.updated.strftime('%Y%m%d_%H%M%S')}"
+            
+            context.log.info(f"New data detected: {latest.name}")
+            yield RunRequest(run_key=run_key)
         else:
-            context.log.info(f"No new data. Last: {last_processed}, Current: {latest_ts_str}")
+            context.log.info("No new data in GCS")
             
     except Exception as e:
         context.log.error(f"Sensor error: {e}")
@@ -361,23 +242,37 @@ def new_data_sensor(context: SensorEvaluationContext):
 
 defs = Definitions(
     assets=[
-        raw_listen_events,
-        raw_status_change_events,
-        dbt_staging,
-        dbt_intermediate,
-        dbt_marts,
-        dbt_tests,
+        # dbt assets
+        dbt_staging_models,
+        dbt_intermediate_models,
+        dbt_marts_models,
+        dbt_test_results,
+        dbt_docs,
+        # BigQuery validation assets
+        bq_raw_listen_events,
+        bq_raw_page_view_events,
+        bq_raw_auth_events,
+        bq_raw_status_change_events,
+        validate_mart_top_songs,
+        validate_mart_active_users,
+        # Spark/Infrastructure assets
+        spark_job_status,
+        gcs_data_freshness,
     ],
     jobs=[
-        dbt_full_refresh_job,
-        dbt_incremental_job,
+        dbt_full_pipeline_job,
+        dbt_local_pipeline_job,
+        dbt_marts_only_job,
+        bigquery_validation_job,
+        infrastructure_check_job,
     ],
     schedules=[
-        frequent_incremental_schedule,  # Every 5 min - incremental
-        hourly_dbt_schedule,            # Hourly - full refresh
-        daily_dbt_schedule,             # Daily at 2 AM - full refresh
+        frequent_marts_schedule,
+        hourly_full_pipeline_schedule,
+        daily_full_pipeline_schedule,
+        bigquery_validation_schedule,
     ],
     sensors=[
-        new_data_sensor,
+        gcs_new_data_sensor,
     ],
 )

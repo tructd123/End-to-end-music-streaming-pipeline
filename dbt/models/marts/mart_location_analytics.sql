@@ -28,9 +28,13 @@ WITH listens AS (
 
 location_stats AS (
     SELECT
+        {% if target.type == 'bigquery' %}
+        location,
+        {% else %}
         city,
         state,
         location,
+        {% endif %}
         
         -- Volume
         COUNT(*) AS total_plays,
@@ -47,14 +51,20 @@ location_stats AS (
         MAX(event_timestamp) AS last_activity
 
     FROM listens
-    WHERE city IS NOT NULL AND state IS NOT NULL
+    WHERE location IS NOT NULL
+    {% if target.type == 'bigquery' %}
+    GROUP BY location
+    {% else %}
     GROUP BY city, state, location
+    {% endif %}
 )
 
 SELECT
     ROW_NUMBER() OVER (ORDER BY total_plays DESC) AS rank,
+    {% if target.type == 'postgres' %}
     city,
     state,
+    {% endif %}
     location,
     total_plays,
     unique_users,

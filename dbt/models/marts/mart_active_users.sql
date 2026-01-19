@@ -19,8 +19,12 @@ SELECT
     user_id,
     full_name,
     current_level,
+    {% if target.type == 'bigquery' %}
+    location,
+    {% else %}
     city,
     state,
+    {% endif %}
     
     -- Activity metrics
     total_plays,

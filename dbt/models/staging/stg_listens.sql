@@ -9,6 +9,7 @@
     Staging model for listen events
     - Cleans and standardizes raw listen event data
     - Adds derived time fields for analysis
+    - Maps camelCase (BigQuery external table) to snake_case
 */
 
 WITH source AS (
@@ -19,26 +20,45 @@ cleaned AS (
     SELECT
         -- Primary identifiers
         event_timestamp,
+        {% if target.type == 'bigquery' %}
+        userId AS user_id,
+        sessionId AS session_id,
+        {% else %}
         user_id,
         session_id,
+        {% endif %}
         
         -- Song info
         song,
         artist,
         
         -- User info
+        {% if target.type == 'bigquery' %}
+        firstName AS first_name,
+        lastName AS last_name,
+        CONCAT(firstName, ' ', lastName) AS full_name,
+        {% else %}
         first_name,
         last_name,
         CONCAT(first_name, ' ', last_name) AS full_name,
+        {% endif %}
         level AS subscription_level,
         
-        -- Location
+        -- Location (BigQuery external table has location as full string)
+        {% if target.type == 'bigquery' %}
+        location,
+        {% else %}
         city,
         state,
         CONCAT(city, ', ', state) AS location,
+        {% endif %}
         
         -- Device
+        {% if target.type == 'bigquery' %}
+        userAgent AS user_agent,
+        {% else %}
         user_agent,
+        {% endif %}
         
         -- Derived time fields
         DATE(event_timestamp) AS event_date,
@@ -64,7 +84,11 @@ cleaned AS (
 
     FROM source
     WHERE 
+        {% if target.type == 'bigquery' %}
+        userId IS NOT NULL
+        {% else %}
         user_id IS NOT NULL
+        {% endif %}
         AND song IS NOT NULL
         AND artist IS NOT NULL
 )
