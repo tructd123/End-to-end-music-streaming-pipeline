@@ -44,14 +44,12 @@ cleaned AS (
         {% endif %}
         level AS subscription_level,
         
-        -- Location (BigQuery external table has location as full string)
-        {% if target.type == 'bigquery' %}
-        location,
-        {% else %}
+        -- Location
         city,
         state,
         CONCAT(city, ', ', state) AS location,
-        {% endif %}
+        lon AS longitude,
+        lat AS latitude,
         
         -- Device
         {% if target.type == 'bigquery' %}

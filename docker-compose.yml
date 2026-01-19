@@ -68,7 +68,6 @@ services:
       --nusers ${EVENTSIM_NUSERS:-100}
       --from ${EVENTSIM_FROM_DAYS:-7}
       --to ${EVENTSIM_TO_DAYS:-1}
-      --continuous
     networks:
       - streaming-network
     restart: on-failure
