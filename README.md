@@ -1,152 +1,251 @@
-# SoundFlow - Music Streaming Data Pipeline
+# 🎵 SoundFlow - Music Streaming Data Pipeline
 
-End-to-end real-time data pipeline for music streaming analytics, similar to Spotify.
+End-to-end data pipeline for music streaming analytics, simulating a Spotify-like platform.
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌─────────────┐
-│  Eventsim   │───▶│   Redpanda   │───▶│  Spark Streaming│───▶│    GCS      │
-│ (Generator) │    │   (Broker)   │    │  (Every 2 min)  │    │ (Data Lake) │
-└─────────────┘    └──────────────┘    └─────────────────┘    └──────┬──────┘
-                                                                     │
-                   ┌─────────────────────────────────────────────────┘
-                   ▼
-          ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-          │    Dagster      │───▶│    BigQuery     │───▶│    Power BI     │
-          │ (Hourly Batch)  │    │  + dbt Models   │    │   (Dashboard)   │
-          └─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         SoundFlow Data Pipeline                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  LOCAL                                       GOOGLE CLOUD PLATFORM              │
+│                                                                                  │
+│  ┌──────────────┐    ┌──────────────┐       ┌────────────────────────────────┐ │
+│  │   EventSim   │───▶│   Redpanda   │       │       Cloud Storage (GCS)      │ │
+│  │   (Docker)   │    │   (Kafka)    │       │  gs://bucket/raw/              │ │
+│  │              │    │   :9092      │       │  ├── listen_events/            │ │
+│  │  Generates   │    │              │       │  │   └── year=/month=/day=/    │ │
+│  │  user events │    │  4 topics    │       │  ├── page_view_events/         │ │
+│  └──────────────┘    └──────┬───────┘       │  ├── auth_events/              │ │
+│                             │               │  └── status_change_events/     │ │
+│                             │               └───────────────┬────────────────┘ │
+│                             ▼                               │                   │
+│                      ┌──────────────┐                       │                   │
+│                      │    Python    │───────────────────────┘                   │
+│                      │    Script    │         Parquet files                     │
+│                      │              │         (partitioned)                     │
+│                      │ kafka_to_gcs │                                           │
+│                      │ _python.py   │       ┌────────────────────────────────┐ │
+│                      └──────────────┘       │         BigQuery               │ │
+│                                             │                                │ │
+│                                             │  raw (External Tables)         │ │
+│                      ┌──────────────┐       │  ├── ext_listen_events         │ │
+│                      │     dbt      │──────▶│  ├── ext_page_view_events      │ │
+│                      │              │       │  ├── ext_auth_events           │ │
+│                      │ 13 models    │       │  └── ext_status_change_events  │ │
+│                      │ 31 tests     │       │           │                     │ │
+│                      └──────────────┘       │           ▼                     │ │
+│                                             │  staging ──▶ intermediate       │ │
+│                                             │           │                     │ │
+│                                             │           ▼                     │ │
+│                                             │        marts                    │ │
+│                                             └────────────────────────────────┘ │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 📦 Components
+## 📦 Tech Stack
 
-| Component | Description | Port |
-|-----------|-------------|------|
-| **Eventsim** | Simulates music streaming events | - |
-| **Redpanda** | Kafka-compatible message broker | 9092 |
-| **Redpanda Console** | Web UI for Redpanda | 8080 |
-| **Spark Streaming** | Stream processing (2-min micro-batches) | - |
-| **Dagster** | Workflow orchestration (hourly jobs) | 3000 |
-| **dbt** | Data transformation in BigQuery | - |
-| **BigQuery** | Data warehouse | - |
-| **Power BI** | Visualization | - |
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **EventSim** | Scala/Docker | Simulates music streaming events |
+| **Redpanda** | Kafka-compatible | Message broker (port 9092) |
+| **ETL Script** | Python | Kafka → GCS transfer |
+| **Data Lake** | Google Cloud Storage | Raw data storage (Parquet) |
+| **Data Warehouse** | BigQuery | Analytics & transformations |
+| **Transformation** | dbt | Data modeling & testing |
+| **Infrastructure** | Terraform | Infrastructure as Code |
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- GCP Account with billing enabled
+- Docker Desktop
+- Python >= 3.10
+- GCP Account with credentials
 - Terraform >= 1.0
 
-### Step 1: Setup GCP Infrastructure
+### Step 1: Setup Environment
+
+```bash
+# Clone repository
+git clone <repo-url>
+cd Data_streaming_pipeline
+
+# Create virtual environment
+python -m venv .venv
+.venv\Scripts\Activate.ps1  # Windows
+# source .venv/bin/activate  # Linux/Mac
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your settings
+```
+
+### Step 2: Deploy GCP Infrastructure
 
 ```bash
 cd terraform
 
-# Copy and edit variables
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your GCP project ID
-
 # Initialize and apply
 terraform init
-terraform plan
-terraform apply
+terraform apply -auto-approve
+
+# Enable external tables (after data exists)
+terraform apply -var="enable_external_tables=true" -auto-approve
 ```
 
-### Step 2: Configure Environment
+### Step 3: Run the Pipeline
 
 ```bash
-cd ..
+# 1. Start Kafka broker
+docker-compose up -d redpanda
 
-# Copy environment file
-cp .env.example .env
+# 2. Generate events (~50K)
+docker-compose up eventsim
 
-# Edit .env with your GCP settings
-# - GCP_PROJECT
-# - GCS_BUCKET
+# 3. Upload to GCS
+cd spark_streaming/src
+python kafka_to_gcs_python.py
+
+# 4. Run dbt transformations
+cd ../../dbt
+dbt run --target prod --full-refresh
+dbt test --target prod
 ```
 
-### Step 3: Start the Pipeline
+## 📊 Data Models
 
-```bash
-# Start all services
-docker-compose up -d
+### Events Generated
 
-# Check status
-docker-compose ps
+| Event Type | Description | Example Volume |
+|------------|-------------|----------------|
+| `listen_events` | User plays a song | 24,250 |
+| `page_view_events` | User views a page | 29,335 |
+| `auth_events` | Login/logout | 435 |
+| `status_change_events` | Subscription changes | 21 |
 
-# View logs
-docker-compose logs -f eventsim
-docker-compose logs -f spark-streaming
+### dbt Model Layers
+
+```
+External Tables (raw)
+       │
+       ▼
+┌─────────────────┐
+│  Staging Views  │  stg_listens, stg_page_views, stg_auth, stg_status_changes
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Intermediate    │  int_daily_metrics, int_song_stats, int_user_activity
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Marts Tables   │  Analytics-ready tables
+└─────────────────┘
 ```
 
-### Step 4: Access UIs
+### Analytics Marts
 
-- **Redpanda Console**: http://localhost:8080
-- **Dagster**: http://localhost:3000
-
-## 📊 Business Questions Answered
-
-The pipeline provides data marts to answer:
-
-1. **🎵 What songs are most popular?**
-   - `mart_top_songs`: Ranked by plays, listeners, popularity score
-
-2. **👥 Who are the active users?**
-   - `mart_active_users`: User segments by activity and engagement
-
-3. **📍 Where are they from?**
-   - `mart_location_analytics`: Geographic distribution and metrics
+| Mart | Description | Key Metrics |
+|------|-------------|-------------|
+| `mart_hourly_metrics` | Hourly KPIs | Listens, users, sessions per hour |
+| `mart_daily_summary` | Daily overview | Total listens, unique users |
+| `mart_location_analytics` | Geographic analysis | Listens by city/state |
+| `mart_active_users` | User engagement | Listen count, engagement tier |
+| `mart_top_songs` | Top 100 songs | Play count, unique listeners |
+| `mart_top_artists` | Top 100 artists | Play count, song count |
 
 ## 📁 Project Structure
 
 ```
 Data_streaming_pipeline/
-├── docker-compose.yml          # Master orchestration
-├── .env.example                # Environment template
-├── credentials/                # GCP service account key
-│   └── gcp-key.json           # (generated by Terraform)
-├── eventsim/                   # Event generator
-├── redpanda/                   # Message broker config
-├── spark_streaming/            # Stream processing
-│   ├── Dockerfile
+├── eventsim/                   # Event generator (Scala)
+│   ├── docker/
+│   └── examples/
+├── redpanda/                   # Kafka broker config
+├── spark_streaming/            # ETL scripts
 │   └── src/
-│       ├── streaming_to_gcs.py
-│       └── config.py
-├── dagster/                    # Orchestration
-│   ├── Dockerfile
-│   └── dagster_pipeline/
+│       └── kafka_to_gcs_python.py
 ├── dbt/                        # Transformations
-│   ├── dbt_project.yml
-│   ├── profiles.yml
-│   └── models/
-│       ├── staging/
-│       ├── intermediate/
-│       └── marts/
-└── terraform/                  # Infrastructure as Code
-    ├── main.tf
-    ├── variables.tf
-    └── outputs.tf
+│   ├── models/
+│   │   ├── staging/
+│   │   ├── intermediate/
+│   │   └── marts/
+│   └── profiles.yml
+├── terraform/                  # Infrastructure as Code
+│   ├── gcs.tf
+│   ├── bigquery.tf
+│   └── iam.tf
+├── dagster/                    # Orchestration (optional)
+├── credentials/                # GCP keys (gitignored)
+├── docs/                       # Documentation
+├── docker-compose.yml
+├── requirements.txt
+└── .env
 ```
 
-## 🔄 Data Flow
+## 🔧 Configuration
 
-1. **Eventsim** generates fake music streaming events
-2. **Redpanda** receives events in 4 topics:
-   - `listen_events`
-   - `page_view_events`
-   - `auth_events`
-   - `status_change_events`
-3. **Spark Streaming** consumes and writes to GCS every 2 minutes
-4. **Dagster** runs hourly to:
-   - Load GCS → BigQuery staging tables
-   - Trigger dbt transformations
-5. **dbt** transforms data:
-   - `staging/` → Clean raw data
-   - `intermediate/` → Aggregate metrics
-   - `marts/` → Business-ready tables
-6. **Power BI** connects to BigQuery marts
+### Environment Variables (.env)
+
+```env
+# GCP
+GCP_PROJECT_ID=your-project-id
+GCP_REGION=asia-southeast1
+GCS_BUCKET=your-bucket-name
+GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json
+
+# Kafka
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+
+# EventSim
+EVENTSIM_NUSERS=500      # Number of simulated users
+EVENTSIM_FROM=30         # Start from N days ago
+EVENTSIM_TO=0            # End at today
+```
+
+### Terraform Variables
+
+```hcl
+project_id              = "your-gcp-project"
+region                  = "asia-southeast1"
+environment             = "dev"
+enable_external_tables  = true
+```
+
+## 💰 Cost Estimation
+
+| Resource | Usage | Est. Monthly Cost |
+|----------|-------|-------------------|
+| GCS Storage | 10 GB | ~$0.20 |
+| BigQuery Storage | 50 GB | ~$1.00 |
+| BigQuery Queries | 1 TB/month | ~$5.00 |
+| **Total** | | **~$6/month** |
+
+*With 50K events (~5MB), costs stay within GCP free tier.*
+
+## 🧪 Test Results
+
+Pipeline tested with 54,041 events:
+
+| Component | Status |
+|-----------|--------|
+| Events Generated | ✅ 54,041 |
+| GCS Upload | ✅ 4 topics |
+| dbt Models | ✅ 13/13 passed |
+| dbt Tests | ✅ 31/31 passed |
+
+## 📚 Documentation
+
+- [Quick Start Guide](docs/QUICKSTART.md)
+- [GCP Configuration](docs/GCP_CONFIG.md)
+- [Full Documentation](docs/README.md)
 
 ## 🛠️ Development
 
@@ -154,105 +253,6 @@ Data_streaming_pipeline/
 
 ```bash
 cd dbt
-pip install dbt-bigquery
-
-# Set environment variables
-export GCP_PROJECT=your-project-id
-export GOOGLE_APPLICATION_CREDENTIALS=../credentials/gcp-key.json
-
-# Run dbt
-dbt deps
-dbt debug
-dbt run
-dbt test
-```
-
-### Run Dagster locally
-
-```bash
-cd dagster
-pip install -r requirements.txt
-
-export DAGSTER_HOME=$(pwd)/dagster_home
-dagster dev
-```
-
-## 📈 Scaling Considerations
-
-For production:
-
-1. **Redpanda**: Use managed Redpanda Cloud or multi-node cluster
-2. **Spark**: Use Dataproc or Kubernetes
-3. **Dagster**: Use Dagster Cloud
-4. **dbt**: Use dbt Cloud for scheduling
-
----
-
-## ☁️ GCP Deployment Guide
-
-### Prerequisites
-
-- Google Cloud Platform account with billing enabled
-- `gcloud` CLI installed and authenticated
-- Terraform >= 1.0
-- Docker Desktop
-
-### Step 1: Configure GCP Environment
-
-```bash
-# Copy environment template
-cp .env.gcp.example .env.gcp
-
-# Edit with your GCP project ID
-# nano .env.gcp
-```
-
-### Step 2: Deploy Infrastructure with Terraform
-
-```bash
-cd terraform
-
-# Copy and configure variables
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your project_id
-
-# Initialize Terraform
-terraform init
-
-# Preview changes
-terraform plan
-
-# Apply infrastructure
-terraform apply
-```
-
-This creates:
-- **GCS Bucket**: Data lake for raw/processed data
-- **BigQuery Datasets**: raw, staging, intermediate, marts
-- **Pub/Sub Topics**: listen-events, page-view-events, auth-events, status-change-events
-- **Service Accounts**: For Spark, dbt, and Dagster with appropriate permissions
-
-### Step 3: Deploy Spark Streaming to GCP
-
-```bash
-# Build and push Docker image
-cd spark_streaming
-docker build -f Dockerfile.gcp -t gcr.io/YOUR_PROJECT/soundflow-spark:latest .
-docker push gcr.io/YOUR_PROJECT/soundflow-spark:latest
-
-# Deploy to Cloud Run Jobs or GKE
-# See terraform/cloud_run.tf for Cloud Run configuration
-```
-
-### Step 4: Configure dbt for BigQuery
-
-```bash
-cd dbt
-
-# Set environment
-export DBT_TARGET=prod
-export GCP_PROJECT=your-project-id
-export GOOGLE_APPLICATION_CREDENTIALS=../terraform/credentials/dbt-sa-key.json
 
 # Test connection
 dbt debug --target prod
@@ -260,75 +260,24 @@ dbt debug --target prod
 # Run models
 dbt run --target prod
 dbt test --target prod
+
+# Generate docs
+dbt docs generate
+dbt docs serve
 ```
 
-### Step 5: Use the PowerShell Deployment Script (Windows)
+### Useful Commands
 
-```powershell
-# Full deployment
-.\scripts\deploy_gcp.ps1
+```bash
+# Check Kafka topics
+docker exec -it redpanda rpk topic list
 
-# Terraform only
-.\scripts\deploy_gcp.ps1 -TerraformOnly
+# Query BigQuery
+bq query --use_legacy_sql=false "SELECT COUNT(*) FROM raw.ext_listen_events"
 
-# Skip certain steps
-.\scripts\deploy_gcp.ps1 -SkipDocker -SkipDbt
+# View GCS files
+gsutil ls -r gs://YOUR_BUCKET/raw/
 ```
-
-### GCP Architecture
-
-```
-                                   Google Cloud Platform
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                                                             │
-│  ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐                │
-│  │  EventSim   │───▶│   Pub/Sub    │───▶│  Spark on       │                │
-│  │ (Generator) │    │   Topics     │    │  Cloud Run      │                │
-│  └─────────────┘    └──────────────┘    └────────┬────────┘                │
-│                                                  │                          │
-│                         ┌────────────────────────┘                          │
-│                         ▼                                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐       │
-│  │                    Google Cloud Storage                          │       │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │       │
-│  │  │  raw/       │  │ checkpoints/│  │  dbt/       │              │       │
-│  │  │ - listen    │  │ - spark     │  │ - logs      │              │       │
-│  │  │ - page_view │  │ - dagster   │  │ - manifest  │              │       │
-│  │  │ - auth      │  └─────────────┘  └─────────────┘              │       │
-│  │  └──────┬──────┘                                                 │       │
-│  └─────────┼────────────────────────────────────────────────────────┘       │
-│            │                                                                 │
-│            │ External Tables                                                 │
-│            ▼                                                                 │
-│  ┌─────────────────────────────────────────────────────────────────┐       │
-│  │                         BigQuery                                 │       │
-│  │  ┌───────────┐  ┌───────────┐  ┌────────────┐  ┌─────────────┐ │       │
-│  │  │    raw    │  │  staging  │  │intermediate│  │    marts    │ │       │
-│  │  │ (external)│─▶│ (views)   │─▶│  (views)   │─▶│  (tables)   │ │       │
-│  │  └───────────┘  └───────────┘  └────────────┘  └──────┬──────┘ │       │
-│  └───────────────────────────────────────────────────────┼─────────┘       │
-│                                                          │                  │
-└──────────────────────────────────────────────────────────┼──────────────────┘
-                                                           │
-                                              ┌────────────┘
-                                              ▼
-                                   ┌─────────────────┐
-                                   │    Power BI     │
-                                   │   (Dashboard)   │
-                                   └─────────────────┘
-```
-
-### Cost Estimation (Small Scale)
-
-| Resource | Usage | Est. Monthly Cost |
-|----------|-------|-------------------|
-| GCS | 10 GB | ~$0.20 |
-| BigQuery | 50 GB storage, 1 TB query | ~$6 |
-| Pub/Sub | 10 GB | ~$0.04 |
-| Cloud Run | Minimal | ~$5 |
-| **Total** | | **~$12/month** |
-
-*Actual costs depend on usage. Use GCP Pricing Calculator for accurate estimates.*
 
 ## 📝 License
 
