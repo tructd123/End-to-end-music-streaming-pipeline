@@ -1,14 +1,14 @@
-# 📘 Hướng dẫn sử dụng Adminer - SoundFlow
+# 📘 Adminer User Guide - SoundFlow
 
-## 🚀 Bước 1: Truy cập Adminer
+## 🚀 Step 1: Access Adminer
 
-1. Mở trình duyệt web
-2. Truy cập: **http://localhost:8081**
-3. Bạn sẽ thấy trang đăng nhập
+1. Open your web browser
+2. Go to: **http://localhost:8081**
+3. You will see the login page
 
-## 🔐 Bước 2: Đăng nhập
+## 🔐 Step 2: Login
 
-Điền thông tin sau:
+Enter the following information:
 
 ```
 System:   PostgreSQL (dropdown)
@@ -18,24 +18,24 @@ Password: soundflow123
 Database: soundflow
 ```
 
-Sau đó click nút **"Login"**
+Then click the **"Login"** button
 
-## 📊 Bước 3: Chọn Schema "raw"
+## 📊 Step 3: Select Schema "raw"
 
-**QUAN TRỌNG**: Sau khi đăng nhập, bạn sẽ thấy giao diện chính.
+**IMPORTANT**: After logging in, you will see the main interface.
 
-### Tìm dropdown Schema:
-- Ở phía **bên trái** màn hình
-- Có chữ **"Schema:"** hoặc dropdown hiện **"public"**
-- **Click vào dropdown đó** và chọn **"raw"**
+### Find the Schema dropdown:
+- On the **left side** of the screen
+- Look for **"Schema:"** or a dropdown showing **"public"**
+- **Click on the dropdown** and select **"raw"**
 
-### Nếu không thấy dropdown:
-- Ở menu bên trái, tìm phần **"DB schema:"**
-- Hoặc xem URL: `...&ns=public` → click vào "public" và chọn "raw"
+### If you don't see the dropdown:
+- In the left menu, find **"DB schema:"**
+- Or look at the URL: `...&ns=public` → click on "public" and select "raw"
 
-## 📁 Bước 4: Xem danh sách bảng
+## 📁 Step 4: View Table List
 
-Sau khi chọn schema "raw", bạn sẽ thấy 5 bảng:
+After selecting schema "raw", you will see 5 tables:
 
 - ✅ **listen_events** (173K+ records)
 - ✅ **status_change_events** (160+ records)
@@ -43,34 +43,34 @@ Sau khi chọn schema "raw", bạn sẽ thấy 5 bảng:
 - ✅ **auth_events** (0 records)
 - ✅ **pipeline_metadata** (metadata)
 
-## 🔍 Bước 5: Xem dữ liệu
+## 🔍 Step 5: View Data
 
-### Cách 1: Click vào tên bảng
-1. Click vào **"listen_events"**
-2. Bạn sẽ thấy cấu trúc bảng (columns, types, indexes)
-3. Click tab **"Select data"** ở phía trên
-4. Chọn số dòng muốn xem (10, 50, 100...)
+### Method 1: Click on table name
+1. Click on **"listen_events"**
+2. You will see the table structure (columns, types, indexes)
+3. Click the **"Select data"** tab at the top
+4. Choose how many rows to view (10, 50, 100...)
 5. Click **"Select"**
 
-### Cách 2: Chạy SQL Query (KHUYÊN DÙNG)
-1. Click **"SQL command"** ở menu bên trái
-2. Hoặc URL: **http://localhost:8081/?pgsql=postgres&username=soundflow&db=soundflow&sql=**
-3. Nhập câu query SQL
-4. Click **"Execute"** hoặc nhấn **Ctrl+Enter**
+### Method 2: Run SQL Query (RECOMMENDED)
+1. Click **"SQL command"** in the left menu
+2. Or go to URL: **http://localhost:8081/?pgsql=postgres&username=soundflow&db=soundflow&sql=**
+3. Enter your SQL query
+4. Click **"Execute"** or press **Ctrl+Enter**
 
-## 💡 Query Mẫu Cơ Bản
+## 💡 Basic Sample Queries
 
-### Query 1: Xem 10 bản ghi đầu tiên
+### Query 1: View first 10 records
 ```sql
 SELECT * FROM raw.listen_events LIMIT 10;
 ```
 
-### Query 2: Đếm tổng số bản ghi
+### Query 2: Count total records
 ```sql
 SELECT COUNT(*) FROM raw.listen_events;
 ```
 
-### Query 3: Xem bài hát mới nhất
+### Query 3: View latest songs
 ```sql
 SELECT 
     event_timestamp,
@@ -85,7 +85,7 @@ ORDER BY event_timestamp DESC
 LIMIT 10;
 ```
 
-### Query 4: Top 5 bài hát phổ biến
+### Query 4: Top 5 popular songs
 ```sql
 SELECT 
     song,
@@ -97,51 +97,51 @@ ORDER BY plays DESC
 LIMIT 5;
 ```
 
-## 🎯 Query Nâng Cao
+## 🎯 Advanced Queries
 
-Mở file **adminer_queries.sql** trong project để xem thêm 10 query phân tích chi tiết:
+Open the **adminer_queries.sql** file in the project to see 10 more detailed analytical queries:
 
-1. Top bài hát phổ biến
-2. Top users nghe nhạc nhiều
-3. Phân bố theo thành phố
-4. Phân tích free vs paid users
-5. Activity theo giờ
-6. Và nhiều hơn nữa...
+1. Top popular songs
+2. Top users listening the most
+3. Distribution by city
+4. Free vs paid user analysis
+5. Activity by hour
+6. And more...
 
-## 🛠️ Các Tính Năng Khác
+## 🛠️ Other Features
 
-### Export dữ liệu:
-1. Chọn bảng
+### Export data:
+1. Select a table
 2. Click **"Export"**
-3. Chọn format: CSV, SQL, JSON...
+3. Choose format: CSV, SQL, JSON...
 4. Click **"Export"**
 
-### Import dữ liệu:
+### Import data:
 1. Click **"Import"**
-2. Chọn file
+2. Select file
 3. Click **"Execute"**
 
-### Tạo bảng mới:
+### Create new table:
 1. Click **"Create table"**
-2. Điền tên và định nghĩa columns
+2. Enter name and column definitions
 3. Click **"Save"**
 
 ## 🔧 Troubleshooting
 
-### Không thấy bảng nào?
-✅ Kiểm tra xem đã chọn schema **"raw"** chưa
-✅ Thử refresh trang (F5)
-✅ Logout và login lại
+### Don't see any tables?
+✅ Check if you've selected the **"raw"** schema
+✅ Try refreshing the page (F5)
+✅ Logout and login again
 
-### Query bị lỗi?
-✅ Đảm bảo có **"raw."** trước tên bảng: `raw.listen_events`
-✅ Kiểm tra syntax SQL
-✅ Xem error message ở phía dưới query box
+### Query error?
+✅ Make sure to include **"raw."** before table name: `raw.listen_events`
+✅ Check SQL syntax
+✅ Look at the error message below the query box
 
-### Không kết nối được?
-✅ Kiểm tra containers: `docker ps`
-✅ Kiểm tra postgres đang chạy: `docker logs postgres`
-✅ Thử restart adminer: `docker restart adminer`
+### Cannot connect?
+✅ Check containers: `docker ps`
+✅ Check if postgres is running: `docker logs postgres`
+✅ Try restarting adminer: `docker restart adminer`
 
 ## 📞 Quick Commands
 
@@ -164,4 +164,4 @@ docker exec -it postgres psql -U soundflow -d soundflow -c "\dt raw.*"
 
 ---
 
-**Lưu ý**: Nhớ luôn chọn schema **"raw"** sau khi login để xem được các bảng!
+**Note**: Remember to always select schema **"raw"** after login to see the tables!

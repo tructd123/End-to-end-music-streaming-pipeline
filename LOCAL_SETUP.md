@@ -1,6 +1,6 @@
 # SoundFlow - Local PostgreSQL Setup
 
-Hướng dẫn chạy pipeline hoàn chỉnh trên local với PostgreSQL.
+Guide to running the complete pipeline locally with PostgreSQL.
 
 ## 📋 Prerequisites
 
@@ -16,7 +16,7 @@ Hướng dẫn chạy pipeline hoàn chỉnh trên local với PostgreSQL.
 docker-compose -f docker-compose.local.yml up -d
 ```
 
-Services khởi động:
+Services started:
 - ✅ PostgreSQL (port 5432)
 - ✅ Adminer UI (port 8081)
 - ✅ Redpanda (port 9092)
@@ -27,15 +27,15 @@ Services khởi động:
 
 ### 2. Monitor Services
 
-**Xem logs:**
+**View logs:**
 ```bash
-# Tất cả services
+# All services
 docker-compose -f docker-compose.local.yml logs -f
 
-# Chỉ Spark
+# Spark only
 docker-compose -f docker-compose.local.yml logs -f spark-streaming
 
-# Chỉ EventSim
+# EventSim only
 docker-compose -f docker-compose.local.yml logs -f eventsim
 ```
 
@@ -53,7 +53,7 @@ docker exec -it redpanda rpk topic consume listen_events --num 10
 | **Redpanda Console** | http://localhost:8080 | Kafka/Topics Monitor |
 | **Dagster** | http://localhost:3000 | Workflow Orchestration |
 
-**Login Adminer:**
+**Login to Adminer:**
 - System: `PostgreSQL`
 - Server: `postgres`
 - Username: `soundflow`
@@ -107,7 +107,7 @@ SELECT * FROM marts.mart_location_analytics;
 
 ## 🔍 Troubleshooting
 
-**Spark không ghi dữ liệu:**
+**Spark not writing data:**
 ```bash
 # Check Spark logs
 docker logs spark-streaming
