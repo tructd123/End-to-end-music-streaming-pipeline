@@ -1,6 +1,6 @@
 # ⚙️ GCP Configuration Guide
 
-## 📋 Thông tin Project
+## 📋 Project Information
 
 | Property | Value |
 |----------|-------|
@@ -41,7 +41,7 @@ gs://tf-state-soundflow-123/
 
 ### Partition Format
 - **Hive-style partitioning**: `year=YYYY/month=MM/day=DD/hour=HH`
-- **File format**: Parquet với timestamp milliseconds
+- **File format**: Parquet with millisecond timestamps
 
 ---
 
@@ -49,7 +49,7 @@ gs://tf-state-soundflow-123/
 
 | Dataset | Schema | Purpose |
 |---------|--------|---------|
-| `raw` | External tables | Raw data từ GCS |
+| `raw` | External tables | Raw data from GCS |
 | `staging_staging` | Views | Cleaned & standardized |
 | `staging_intermediate` | Views | Aggregated metrics |
 | `staging_marts` | Tables | Analytics-ready |
@@ -75,7 +75,7 @@ gs://tf-state-soundflow-123/
 
 ### Conditional Resources
 - ⚡ External Tables (`enable_external_tables = true`)
-- ❌ Dataproc Cluster (không sử dụng - dùng Python script thay thế)
+- ❌ Dataproc Cluster (not used - using Python script instead)
 
 ### Deploy Commands
 
@@ -85,27 +85,27 @@ cd terraform
 # Initialize
 terraform init
 
-# Deploy cơ bản
+# Basic deployment
 terraform apply -auto-approve
 
-# Bật external tables
+# Enable external tables
 terraform apply -var="enable_external_tables=true" -auto-approve
 
-# Destroy tất cả
+# Destroy all resources
 terraform destroy -auto-approve
 ```
 
 ---
 
-## 💰 Chi phí ước tính
+## 💰 Estimated Costs
 
-| Resource | Chi phí | Ghi chú |
-|----------|---------|---------|
-| **GCS Storage** | ~$0.02/GB/tháng | Free tier: 5GB |
-| **BigQuery Storage** | ~$0.02/GB/tháng | Free tier: 10GB |
-| **BigQuery Query** | ~$5/TB scanned | Free tier: 1TB/tháng |
+| Resource | Cost | Notes |
+|----------|------|-------|
+| **GCS Storage** | ~$0.02/GB/month | Free tier: 5GB |
+| **BigQuery Storage** | ~$0.02/GB/month | Free tier: 10GB |
+| **BigQuery Query** | ~$5/TB scanned | Free tier: 1TB/month |
 
-> 💡 **Với 50K events (~5MB data)**: Hoàn toàn trong free tier
+> 💡 **With 50K events (~5MB data)**: Entirely within free tier
 
 ---
 
@@ -128,7 +128,7 @@ gcloud auth login
 # Set project
 gcloud config set project graphic-boulder-483814-g7
 
-# Application default credentials (cho local development)
+# Application default credentials (for local development)
 gcloud auth application-default login
 ```
 
@@ -166,7 +166,7 @@ bq mk --external_table_definition=def.json PROJECT:DATASET.TABLE
 
 ## 🔄 Recreate External Table
 
-Khi cần reset schema của external table:
+When you need to reset the external table schema:
 
 ```powershell
 # 1. Delete existing table

@@ -1,14 +1,14 @@
 # 🚀 Quick Start Guide
 
-Hướng dẫn nhanh để chạy pipeline từ đầu đến cuối.
+A quick guide to run the pipeline from start to finish.
 
 ## Prerequisites
 
-- Docker Desktop đang chạy
-- Python 3.10+ với virtual environment
-- GCP credentials đã cấu hình
+- Docker Desktop running
+- Python 3.10+ with virtual environment
+- GCP credentials configured
 
-## 5 Bước Chạy Pipeline
+## 5 Steps to Run the Pipeline
 
 ### 1️⃣ Activate Environment
 
@@ -29,10 +29,10 @@ docker-compose ps
 ### 3️⃣ Generate Events
 
 ```powershell
-# Chạy eventsim để tạo ~50K events
+# Run eventsim to generate ~50K events
 docker-compose up eventsim
 
-# Đợi cho đến khi hoàn thành
+# Wait until complete
 # Output: "End Time: ..."
 ```
 
@@ -73,8 +73,8 @@ Done. PASS=31 WARN=0 ERROR=0 SKIP=0 TOTAL=31
 
 ## 🎉 Done!
 
-Data đã sẵn sàng trong BigQuery:
-- **13 models** đã tạo
+Data is now ready in BigQuery:
+- **13 models** created
 - **31 tests** passed
 
 ### View Results
@@ -102,23 +102,23 @@ gsutil -m rm -r gs://tf-state-soundflow-123/raw/
 
 ---
 
-## 📝 Cấu hình số lượng Events
+## 📝 Configuring Event Count
 
-Chỉnh sửa `.env`:
+Edit `.env`:
 
 ```env
-# Ít events (test nhanh)
+# Few events (quick test)
 EVENTSIM_NUSERS=50
 EVENTSIM_FROM=1
 EVENTSIM_TO=0
 
-# Nhiều events (production-like)
+# Many events (production-like)
 EVENTSIM_NUSERS=1000
 EVENTSIM_FROM=90
 EVENTSIM_TO=0
 ```
 
-Sau khi chỉnh, rebuild eventsim:
+After editing, rebuild eventsim:
 ```powershell
 docker-compose up --build eventsim
 ```

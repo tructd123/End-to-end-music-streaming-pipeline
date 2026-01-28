@@ -1,34 +1,34 @@
 # 🎵 SoundFlow - Real-time Music Streaming Analytics Pipeline
 
-## 📋 Mục lục
+## 📋 Table of Contents
 
-1. [Tổng quan](#-tổng-quan)
-2. [Kiến trúc hệ thống](#-kiến-trúc-hệ-thống)
-3. [Yêu cầu cài đặt](#-yêu-cầu-cài-đặt)
-4. [Hướng dẫn triển khai](#-hướng-dẫn-triển-khai)
-5. [Cấu trúc dự án](#-cấu-trúc-dự-án)
-6. [Chạy Pipeline](#-chạy-pipeline)
+1. [Overview](#-overview)
+2. [System Architecture](#-system-architecture)
+3. [Prerequisites](#-prerequisites)
+4. [Deployment Guide](#-deployment-guide)
+5. [Project Structure](#-project-structure)
+6. [Running the Pipeline](#-running-the-pipeline)
 7. [Data Models](#-data-models)
 8. [Troubleshooting](#-troubleshooting)
 
 ---
 
-## 🎯 Tổng quan
+## 🎯 Overview
 
-SoundFlow là một data pipeline end-to-end xử lý streaming data từ ứng dụng nghe nhạc giả lập. Pipeline thu thập events từ người dùng, lưu trữ vào Data Lake (GCS), và transform thành các analytics tables trong BigQuery.
+SoundFlow is an end-to-end data pipeline that processes streaming data from a simulated music streaming application. The pipeline collects user events, stores them in a Data Lake (GCS), and transforms them into analytics tables in BigQuery.
 
-### Các loại Events
+### Event Types
 
-| Event Type | Mô tả | Số lượng (50K test) |
-|------------|-------|---------------------|
-| `listen_events` | User nghe nhạc | 24,250 |
-| `page_view_events` | User xem trang | 29,335 |
-| `auth_events` | Đăng nhập/đăng xuất | 435 |
-| `status_change_events` | Thay đổi subscription | 21 |
+| Event Type | Description | Count (50K test) |
+|------------|-------------|------------------|
+| `listen_events` | User plays a song | 24,250 |
+| `page_view_events` | User views a page | 29,335 |
+| `auth_events` | Login/logout | 435 |
+| `status_change_events` | Subscription changes | 21 |
 
 ---
 
-## 🏗️ Kiến trúc hệ thống
+## 🏗️ System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -94,8 +94,8 @@ SoundFlow là một data pipeline end-to-end xử lý streaming data từ ứng 
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Data Generator | EventSim (Scala) | Giả lập user behavior |
-| Message Queue | Redpanda (Kafka-compatible) | Buffer streaming events |
+| Data Generator | EventSim (Scala) | Simulates user behavior |
+| Message Queue | Redpanda (Kafka-compatible) | Buffers streaming events |
 | ETL Script | Python (confluent-kafka, pyarrow) | Kafka → GCS transfer |
 | Data Lake | Google Cloud Storage | Raw data storage (Parquet) |
 | Data Warehouse | BigQuery | Analytics & transformations |
@@ -104,24 +104,24 @@ SoundFlow là một data pipeline end-to-end xử lý streaming data từ ứng 
 
 ---
 
-## 📦 Yêu cầu cài đặt
+## 📦 Prerequisites
 
-### Phần mềm cần thiết
+### Required Software
 
-| Tool | Version | Mục đích |
-|------|---------|----------|
-| Docker Desktop | Latest | Chạy Redpanda & EventSim |
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Docker Desktop | Latest | Run Redpanda & EventSim |
 | Python | >= 3.10 | ETL script & dbt |
-| Google Cloud SDK | Latest | Tương tác với GCP |
+| Google Cloud SDK | Latest | Interact with GCP |
 | Terraform | >= 1.0 | Deploy infrastructure |
 
-### Python packages
+### Python Packages
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Packages chính:
+Main packages:
 - `confluent-kafka` - Kafka consumer
 - `pyarrow` - Parquet file handling
 - `pandas` - Data manipulation
@@ -130,30 +130,30 @@ Packages chính:
 
 ### GCP Setup
 
-1. Tạo GCP Project
+1. Create GCP Project
 2. Enable APIs:
    - Cloud Storage API
    - BigQuery API
    
-3. Tạo Service Account với roles:
+3. Create Service Account with roles:
    - `roles/storage.objectAdmin`
    - `roles/bigquery.dataEditor`
    - `roles/bigquery.jobUser`
 
-4. Download JSON key và lưu vào `credentials/`
+4. Download JSON key and save to `credentials/`
 
 ---
 
-## 🚀 Hướng dẫn triển khai
+## 🚀 Deployment Guide
 
-### Bước 1: Clone và cấu hình
+### Step 1: Clone and Configure
 
 ```powershell
 # Clone repository
 git clone <repo-url>
 cd Data_streaming_pipeline
 
-# Tạo virtual environment
+# Create virtual environment
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 
@@ -161,19 +161,19 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### Bước 2: Cấu hình credentials
+### Step 2: Configure Credentials
 
 ```powershell
 # Copy service account key
 mkdir credentials
-# Đặt file JSON key vào credentials/dbt-sa-key.json
+# Place JSON key file at credentials/dbt-sa-key.json
 
-# Cấu hình .env
+# Configure .env
 cp .env.example .env
-# Chỉnh sửa các giá trị trong .env
+# Edit values in .env
 ```
 
-### Bước 3: Deploy GCP Infrastructure (Terraform)
+### Step 3: Deploy GCP Infrastructure (Terraform)
 
 ```powershell
 cd terraform
@@ -187,11 +187,11 @@ terraform plan
 # Apply
 terraform apply -auto-approve
 
-# Bật external tables (sau khi có data)
+# Enable external tables (after data exists)
 terraform apply -var="enable_external_tables=true" -auto-approve
 ```
 
-### Bước 4: Cấu hình dbt
+### Step 4: Configure dbt
 
 ```powershell
 cd dbt
@@ -205,7 +205,7 @@ dbt deps
 
 ---
 
-## 📁 Cấu trúc dự án
+## 📁 Project Structure
 
 ```
 Data_streaming_pipeline/
@@ -243,7 +243,7 @@ Data_streaming_pipeline/
 │
 ├── 📂 dagster/                     # Orchestration (future)
 │
-├── 📂 credentials/                 # Service account keys (gitignore)
+├── 📂 credentials/                 # Service account keys (gitignored)
 │   └── dbt-sa-key.json
 │
 ├── 📂 docs/                        # Documentation
@@ -255,7 +255,7 @@ Data_streaming_pipeline/
 
 ---
 
-## ▶️ Chạy Pipeline
+## ▶️ Running the Pipeline
 
 ### Quick Start (Full Pipeline)
 
@@ -263,10 +263,10 @@ Data_streaming_pipeline/
 # 1. Start Redpanda (Kafka)
 docker-compose up -d redpanda
 
-# 2. Generate events với EventSim
+# 2. Generate events with EventSim
 docker-compose up eventsim
 
-# 3. Transfer data từ Kafka → GCS
+# 3. Transfer data from Kafka → GCS
 cd spark_streaming/src
 python kafka_to_gcs_python.py
 
@@ -278,7 +278,7 @@ dbt run --target prod --full-refresh
 dbt test --target prod
 ```
 
-### Chi tiết từng bước
+### Detailed Steps
 
 #### 1️⃣ Start Redpanda
 
@@ -292,18 +292,18 @@ docker-compose ps
 
 #### 2️⃣ Generate Events (EventSim)
 
-Cấu hình số lượng events trong `.env`:
+Configure event count in `.env`:
 ```env
-EVENTSIM_NUSERS=500      # Số users giả lập
-EVENTSIM_FROM=30         # Bắt đầu từ 30 ngày trước
-EVENTSIM_TO=0            # Đến hiện tại
+EVENTSIM_NUSERS=500      # Number of simulated users
+EVENTSIM_FROM=30         # Start from 30 days ago
+EVENTSIM_TO=0            # End at today
 ```
 
 ```powershell
-# Chạy eventsim (không continuous - chạy 1 lần)
+# Run eventsim (not continuous - runs once)
 docker-compose up eventsim
 
-# Hoặc chạy continuous mode
+# Or run in continuous mode
 docker-compose run eventsim --continuous
 ```
 
@@ -314,7 +314,7 @@ cd spark_streaming/src
 python kafka_to_gcs_python.py
 ```
 
-Output mong đợi:
+Expected output:
 ```
 ✓ Processed 24250 records for listen_events
 ✓ Processed 29335 records for page_view_events  
@@ -396,13 +396,13 @@ External Tables (raw)
 
 ## 🔧 Troubleshooting
 
-### Lỗi thường gặp
+### Common Errors
 
 #### 1. Kafka connection refused
 ```
 Error: Connection to localhost:9092 refused
 ```
-**Giải pháp**: Kiểm tra Redpanda đang chạy
+**Solution**: Check if Redpanda is running
 ```powershell
 docker-compose ps
 docker-compose up -d redpanda
@@ -412,7 +412,7 @@ docker-compose up -d redpanda
 ```
 Error: 403 Forbidden
 ```
-**Giải pháp**: Kiểm tra service account có role `storage.objectAdmin`
+**Solution**: Verify service account has `storage.objectAdmin` role
 ```powershell
 gcloud storage buckets add-iam-policy-binding gs://YOUR_BUCKET \
   --member="serviceAccount:YOUR_SA@PROJECT.iam.gserviceaccount.com" \
@@ -423,17 +423,17 @@ gcloud storage buckets add-iam-policy-binding gs://YOUR_BUCKET \
 ```
 Error: Parquet column 'X' has type BYTE_ARRAY which does not match INT64
 ```
-**Giải pháp**: Xóa và tạo lại external table
+**Solution**: Delete and recreate external table
 ```powershell
 bq rm -f -t PROJECT:raw.ext_listen_events
-# Tạo lại với autodetect
+# Recreate with autodetect
 ```
 
 #### 4. dbt model not found
 ```
 Error: Relation does not exist
 ```
-**Giải pháp**: Chạy với `--full-refresh`
+**Solution**: Run with `--full-refresh`
 ```powershell
 dbt run --target prod --full-refresh
 ```
