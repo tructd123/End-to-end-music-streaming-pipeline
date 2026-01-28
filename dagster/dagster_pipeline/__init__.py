@@ -54,6 +54,12 @@ from .assets.spark_assets import (
     gcs_data_freshness,
 )
 
+from .assets.etl_assets import (
+    kafka_to_gcs_transfer,
+    kafka_health_check,
+    eventsim_generate,
+)
+
 
 # ============================================
 # ALL ASSETS
@@ -79,6 +85,12 @@ all_bigquery_assets = [
 all_spark_assets = [
     spark_job_status,
     gcs_data_freshness,
+]
+
+all_etl_assets = [
+    kafka_health_check,
+    kafka_to_gcs_transfer,
+    eventsim_generate,
 ]
 
 
@@ -145,6 +157,29 @@ infrastructure_check_job = define_asset_job(
     description="Check Spark/GCS infrastructure status"
 )
 
+# ETL job - Kafka to GCS transfer
+etl_kafka_to_gcs_job = define_asset_job(
+    name="etl_kafka_to_gcs",
+    selection=AssetSelection.assets(kafka_health_check, kafka_to_gcs_transfer),
+    description="Transfer data from Kafka to GCS"
+)
+
+# Full pipeline job - EventSim → Kafka → GCS → dbt
+full_pipeline_job = define_asset_job(
+    name="full_pipeline",
+    selection=AssetSelection.assets(
+        kafka_health_check,
+        eventsim_generate,
+        kafka_to_gcs_transfer,
+        gcs_data_freshness,
+        dbt_staging_models,
+        dbt_intermediate_models,
+        dbt_marts_models,
+        dbt_test_results,
+    ),
+    description="Run complete pipeline: EventSim → Kafka → GCS → dbt"
+)
+
 
 # ============================================
 # SCHEDULES
@@ -180,6 +215,22 @@ bigquery_validation_schedule = ScheduleDefinition(
     cron_schedule="*/30 * * * *",
     name="bigquery_validation_check",
     description="Validate BigQuery data every 30 minutes"
+)
+
+# Hourly - ETL Kafka to GCS
+hourly_etl_schedule = ScheduleDefinition(
+    job=etl_kafka_to_gcs_job,
+    cron_schedule="30 * * * *",
+    name="hourly_etl_transfer",
+    description="Transfer new Kafka data to GCS every hour at minute 30"
+)
+
+# Daily at 1 AM - Full pipeline
+daily_full_pipeline_schedule = ScheduleDefinition(
+    job=full_pipeline_job,
+    cron_schedule="0 1 * * *",
+    name="daily_full_pipeline_run",
+    description="Run complete pipeline daily at 1 AM"
 )
 
 
@@ -258,6 +309,10 @@ defs = Definitions(
         # Spark/Infrastructure assets
         spark_job_status,
         gcs_data_freshness,
+        # ETL assets
+        kafka_health_check,
+        kafka_to_gcs_transfer,
+        eventsim_generate,
     ],
     jobs=[
         dbt_full_pipeline_job,
@@ -265,12 +320,16 @@ defs = Definitions(
         dbt_marts_only_job,
         bigquery_validation_job,
         infrastructure_check_job,
+        etl_kafka_to_gcs_job,
+        full_pipeline_job,
     ],
     schedules=[
         frequent_marts_schedule,
         hourly_full_pipeline_schedule,
         daily_full_pipeline_schedule,
         bigquery_validation_schedule,
+        hourly_etl_schedule,
+        daily_full_pipeline_schedule,
     ],
     sensors=[
         gcs_new_data_sensor,
