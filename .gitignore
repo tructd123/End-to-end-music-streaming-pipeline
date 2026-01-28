@@ -118,6 +118,7 @@ dbt/profiles.yml
 dagster/dagster_home/history/
 dagster/dagster_home/storage/
 dagster/dagster_home/schedules/
+.tmp_dagster_home_*/
 dagster/dagster_home/logs/
 dagster/dagster_home/runs/
 dagster/.dagster/
