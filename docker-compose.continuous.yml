@@ -1,7 +1,13 @@
-version: '3.8'
-
-# Override file for continuous streaming mode
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.continuous.yml up
+# ================================================================
+# SoundFlow - Continuous Streaming Override
+# ================================================================
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.continuous.yml up -d
+#
+# This override enables continuous event generation for:
+#   - Long-running streaming tests
+#   - Production-like simulation
+#   - Load testing
+# ================================================================
 
 services:
   eventsim:
@@ -11,3 +17,4 @@ services:
       --from ${EVENTSIM_FROM_DAYS:-7}
       --to ${EVENTSIM_TO_DAYS:-1}
       --continuous
+    restart: always

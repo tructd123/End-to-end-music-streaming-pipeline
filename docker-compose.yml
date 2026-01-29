@@ -1,7 +1,22 @@
-version: '3.8'
-
-# Master Docker Compose for Music Streaming Data Pipeline
-# This file orchestrates all services for local development
+# ================================================================
+# SoundFlow Data Streaming Pipeline - Master Docker Compose
+# ================================================================
+# This file orchestrates all services for the music streaming pipeline
+# 
+# MODES:
+#   GCP Mode (default):     docker-compose up -d
+#   Local Mode (Postgres):  docker-compose -f docker-compose.yml -f docker-compose.local.yml up -d
+#   Continuous Streaming:   docker-compose -f docker-compose.yml -f docker-compose.continuous.yml up -d
+#   Dashboard Only:         docker-compose --profile dashboard up -d metabase
+#
+# SERVICES:
+#   - Redpanda (Kafka-compatible message broker)
+#   - Redpanda Console (Kafka UI)
+#   - EventSim (Event generator)
+#   - Spark Streaming (Stream processor)
+#   - Dagster (Orchestration)
+#   - Metabase (Dashboard - optional profile)
+# ================================================================
 
 services:
   # ============================================
@@ -9,7 +24,7 @@ services:
   # ============================================
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
-    container_name: redpanda
+    container_name: soundflow-redpanda
     command:
       - redpanda start
       - --smp 1
@@ -22,11 +37,10 @@ services:
       - --pandaproxy-addr 0.0.0.0:8082
       - --advertise-pandaproxy-addr localhost:8082
     ports:
-      - "9092:9092"
-      - "29092:29092"
-      - "8081:8081"
-      - "8082:8082"
-      - "9644:9644"
+      - "9092:9092"      # Kafka API (external)
+      - "29092:29092"    # Kafka API (internal)
+      - "8082:8082"      # REST Proxy
+      - "9644:9644"      # Admin API
     volumes:
       - redpanda-data:/var/lib/redpanda/data
     networks:
@@ -39,25 +53,25 @@ services:
 
   redpanda-console:
     image: docker.redpanda.com/redpandadata/console:v2.4.3
-    container_name: redpanda-console
+    container_name: soundflow-redpanda-console
     depends_on:
       redpanda:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8080:8080"      # Redpanda Console UI
     environment:
       - KAFKA_BROKERS=redpanda:29092
     networks:
       - streaming-network
 
   # ============================================
-  # EVENT GENERATOR - Eventsim
+  # EVENT GENERATOR - EventSim
   # ============================================
   eventsim:
     build:
       context: ./eventsim
       dockerfile: docker/Dockerfile.complete
-    container_name: eventsim
+    container_name: soundflow-eventsim
     depends_on:
       redpanda:
         condition: service_healthy
@@ -73,23 +87,24 @@ services:
     restart: on-failure
 
   # ============================================
-  # STREAM PROCESSING - Spark
+  # STREAM PROCESSING - Spark (GCP Mode)
   # ============================================
   spark-streaming:
     build:
       context: ./spark_streaming
       dockerfile: Dockerfile
-    container_name: spark-streaming
+    container_name: soundflow-spark
     depends_on:
       redpanda:
         condition: service_healthy
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=redpanda:29092
-      - GCS_BUCKET=${GCS_BUCKET}
-      - GCP_PROJECT=${GCP_PROJECT}
+      - GCS_BUCKET=${GCS_BUCKET:-tf-state-soundflow-123}
+      - GCP_PROJECT=${GCP_PROJECT:-graphic-boulder-483814-g7}
       - TRIGGER_INTERVAL=${TRIGGER_INTERVAL:-2 minutes}
       - CHECKPOINT_LOCATION=/tmp/checkpoints
-      - GOOGLE_APPLICATION_CREDENTIALS=/opt/spark/credentials/gcp-key.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/spark/credentials/pipeline-sa-key.json
+      - PYTHONIOENCODING=utf-8
     volumes:
       - ./credentials:/opt/spark/credentials:ro
       - spark-checkpoints:/tmp/checkpoints
@@ -104,18 +119,21 @@ services:
     build:
       context: ./dagster
       dockerfile: Dockerfile
-    container_name: dagster-webserver
+    container_name: soundflow-dagster-webserver
     entrypoint: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000"]
     ports:
-      - "3000:3000"
+      - "3000:3000"      # Dagster UI
     environment:
       - DAGSTER_HOME=/opt/dagster/dagster_home
-      - GCS_BUCKET=${GCS_BUCKET}
-      - GCP_PROJECT=${GCP_PROJECT}
-      - BQ_DATASET=${BQ_DATASET}
-      - GOOGLE_APPLICATION_CREDENTIALS=/opt/dagster/credentials/gcp-key.json
+      - GCS_BUCKET=${GCS_BUCKET:-tf-state-soundflow-123}
+      - GCP_PROJECT=${GCP_PROJECT:-graphic-boulder-483814-g7}
+      - BQ_DATASET=${BQ_DATASET:-staging_marts}
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/dagster/credentials/pipeline-sa-key.json
+      - PYTHONIOENCODING=utf-8
     volumes:
       - ./dagster/dagster_home:/opt/dagster/dagster_home
+      - ./dagster:/opt/dagster/dagster_pipeline
+      - ./dbt:/opt/dagster/dbt
       - ./credentials:/opt/dagster/credentials:ro
     networks:
       - streaming-network
@@ -126,24 +144,81 @@ services:
     build:
       context: ./dagster
       dockerfile: Dockerfile
-    container_name: dagster-daemon
+    container_name: soundflow-dagster-daemon
     entrypoint: ["dagster-daemon", "run"]
     environment:
       - DAGSTER_HOME=/opt/dagster/dagster_home
-      - GCS_BUCKET=${GCS_BUCKET}
-      - GCP_PROJECT=${GCP_PROJECT}
-      - BQ_DATASET=${BQ_DATASET}
-      - GOOGLE_APPLICATION_CREDENTIALS=/opt/dagster/credentials/gcp-key.json
+      - GCS_BUCKET=${GCS_BUCKET:-tf-state-soundflow-123}
+      - GCP_PROJECT=${GCP_PROJECT:-graphic-boulder-483814-g7}
+      - BQ_DATASET=${BQ_DATASET:-staging_marts}
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/dagster/credentials/pipeline-sa-key.json
+      - PYTHONIOENCODING=utf-8
     volumes:
       - ./dagster/dagster_home:/opt/dagster/dagster_home
+      - ./dagster:/opt/dagster/dagster_pipeline
+      - ./dbt:/opt/dagster/dbt
       - ./credentials:/opt/dagster/credentials:ro
     networks:
       - streaming-network
 
+  # ============================================
+  # DASHBOARD - Metabase (Optional Profile)
+  # ============================================
+  metabase:
+    image: metabase/metabase:latest
+    container_name: soundflow-metabase
+    profiles:
+      - dashboard
+    ports:
+      - "3030:3000"      # Metabase UI (3030 to avoid Dagster conflict)
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=metabase
+      - MB_DB_PORT=5432
+      - MB_DB_USER=metabase
+      - MB_DB_PASS=metabase123
+      - MB_DB_HOST=metabase-db
+      - JAVA_TIMEZONE=Asia/Ho_Chi_Minh
+    volumes:
+      - metabase-data:/metabase-data
+    depends_on:
+      - metabase-db
+    networks:
+      - streaming-network
+    restart: unless-stopped
+
+  metabase-db:
+    image: postgres:15-alpine
+    container_name: soundflow-metabase-db
+    profiles:
+      - dashboard
+    environment:
+      - POSTGRES_USER=metabase
+      - POSTGRES_PASSWORD=metabase123
+      - POSTGRES_DB=metabase
+    volumes:
+      - metabase-postgres:/var/lib/postgresql/data
+    networks:
+      - streaming-network
+    restart: unless-stopped
+
+# ============================================
+# VOLUMES
+# ============================================
 volumes:
   redpanda-data:
+    name: soundflow-redpanda-data
   spark-checkpoints:
+    name: soundflow-spark-checkpoints
+  metabase-data:
+    name: soundflow-metabase-data
+  metabase-postgres:
+    name: soundflow-metabase-postgres
 
+# ============================================
+# NETWORKS
+# ============================================
 networks:
   streaming-network:
+    name: soundflow-network
     driver: bridge
