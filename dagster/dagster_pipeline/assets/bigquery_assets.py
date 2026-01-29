@@ -15,17 +15,37 @@ from dagster import (
 )
 
 
+def is_docker_environment() -> bool:
+    """Check if running inside Docker container"""
+    return (
+        os.path.exists("/.dockerenv") or
+        os.path.exists("/opt/dagster/credentials") or
+        os.getenv("DAGSTER_HOME", "").startswith("/opt")
+    )
+
+
+def get_credentials_path() -> str:
+    """Get path to GCP credentials file"""
+    # 1. Check environment variable first
+    env_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_creds and Path(env_creds).exists():
+        return env_creds
+    
+    # 2. Check Docker path
+    docker_creds = Path("/opt/dagster/credentials/dbt-sa-key.json")
+    if docker_creds.exists():
+        return str(docker_creds)
+    
+    # 3. Fall back to local path
+    local_path = (Path(__file__).parent.parent.parent.parent / "credentials" / "dbt-sa-key.json").resolve()
+    return str(local_path)
+
+
 def get_bigquery_client():
     """Get BigQuery client"""
     from google.cloud import bigquery
     
-    # Local development - dagster/dagster_pipeline/assets/bigquery_assets.py
-    # Go up 4 levels: assets -> dagster_pipeline -> dagster -> project_root
-    credentials_path = os.getenv(
-        "GOOGLE_APPLICATION_CREDENTIALS",
-        str((Path(__file__).parent.parent.parent.parent / "credentials" / "dbt-sa-key.json").resolve())
-    )
-    
+    credentials_path = get_credentials_path()
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
     
     project_id = os.getenv("GCP_PROJECT", "graphic-boulder-483814-g7")

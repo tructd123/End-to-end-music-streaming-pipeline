@@ -16,16 +16,31 @@ from dagster import (
 )
 
 
+def is_docker_environment() -> bool:
+    """Check if running inside Docker container"""
+    return (
+        os.path.exists("/.dockerenv") or
+        os.path.exists("/opt/dagster/credentials") or
+        os.getenv("DAGSTER_HOME", "").startswith("/opt")
+    )
+
+
 def get_credentials_path() -> str:
     """Get path to GCP credentials file"""
+    # 1. Check environment variable first
     env_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if env_path and Path(env_path).exists():
         return env_path
     
-    # Default path: project_root/credentials/dbt-sa-key.json
-    default_path = Path(__file__).parent.parent.parent.parent.resolve() / "credentials" / "dbt-sa-key.json"
-    if default_path.exists():
-        return str(default_path)
+    # 2. Check Docker path
+    docker_path = Path("/opt/dagster/credentials/dbt-sa-key.json")
+    if docker_path.exists():
+        return str(docker_path)
+    
+    # 3. Fall back to local path
+    local_path = Path(__file__).parent.parent.parent.parent.resolve() / "credentials" / "dbt-sa-key.json"
+    if local_path.exists():
+        return str(local_path)
     
     return None
 

@@ -25,9 +25,45 @@ class DbtConfig(Config):
     target: str = os.getenv("DBT_TARGET", "local")  # "local" for PostgreSQL, "prod" for BigQuery
 
 
+def is_docker_environment() -> bool:
+    """Check if running inside Docker container"""
+    return (
+        os.path.exists("/.dockerenv") or
+        os.path.exists("/opt/dagster/credentials") or
+        os.getenv("DAGSTER_HOME", "").startswith("/opt")
+    )
+
+
 def get_default_target() -> str:
     """Get default dbt target from environment or use 'local'"""
     return os.getenv("DBT_TARGET", "local")
+
+
+def get_credentials_path(key_name: str = "dbt-sa-key.json") -> str:
+    """Get path to GCP credentials file"""
+    # 1. Check environment variable first
+    env_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_creds and Path(env_creds).exists():
+        return env_creds
+    
+    # 2. Check Docker path
+    docker_creds = Path(f"/opt/dagster/credentials/{key_name}")
+    if docker_creds.exists():
+        return str(docker_creds)
+    
+    # 3. Fall back to local path
+    local_path = Path(__file__).parent.parent.parent.parent.resolve() / "credentials" / key_name
+    return str(local_path)
+
+
+def get_postgres_host() -> str:
+    """Get PostgreSQL host - handles Docker vs local networking"""
+    env_host = os.getenv("POSTGRES_HOST")
+    if env_host:
+        return env_host
+    
+    # Docker uses service name, local uses localhost
+    return "postgres" if is_docker_environment() else "localhost"
 
 
 def get_dbt_env(target: str = "local") -> dict:
@@ -37,7 +73,7 @@ def get_dbt_env(target: str = "local") -> dict:
     if target == "local":
         env.update({
             "DBT_TARGET": "local",
-            "POSTGRES_HOST": os.getenv("POSTGRES_HOST", "localhost"),
+            "POSTGRES_HOST": get_postgres_host(),
             "POSTGRES_PORT": os.getenv("POSTGRES_PORT", "5432"),
             "POSTGRES_DB": os.getenv("POSTGRES_DB", "soundflow"),
             "POSTGRES_USER": os.getenv("POSTGRES_USER", "soundflow"),
@@ -48,21 +84,20 @@ def get_dbt_env(target: str = "local") -> dict:
             "DBT_TARGET": "prod",
             "GCP_PROJECT": os.getenv("GCP_PROJECT", "graphic-boulder-483814-g7"),
             "BQ_LOCATION": os.getenv("BQ_LOCATION", "asia-southeast1"),
-            "GOOGLE_APPLICATION_CREDENTIALS": os.getenv(
-                "GOOGLE_APPLICATION_CREDENTIALS",
-                str(Path(__file__).parent.parent.parent.parent.resolve() / "credentials" / "dbt-sa-key.json")
-            ),
+            "GOOGLE_APPLICATION_CREDENTIALS": get_credentials_path("dbt-sa-key.json"),
         })
+    
+    # Fix Windows encoding issues
+    env["PYTHONIOENCODING"] = "utf-8"
     
     return env
 
 
 def get_dbt_project_dir() -> Path:
-    """Get dbt project directory"""
+    """Get dbt project directory - handles Docker vs local"""
     # Check for Docker/container environment first
-    container_path = Path("/opt/dagster/dbt")
-    if container_path.exists():
-        return container_path
+    if is_docker_environment():
+        return Path("/opt/dagster/dbt")
     
     # Local development - dagster/dagster_pipeline/assets/dbt_assets.py
     # Go up 4 levels: assets -> dagster_pipeline -> dagster -> project_root

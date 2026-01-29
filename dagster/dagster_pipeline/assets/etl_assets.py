@@ -18,12 +18,22 @@ from dagster import (
 )
 
 
+def is_docker_environment() -> bool:
+    """Check if running inside Docker container"""
+    # Check common Docker indicators
+    return (
+        os.path.exists("/.dockerenv") or
+        os.path.exists("/opt/dagster/credentials") or
+        os.getenv("DAGSTER_HOME", "").startswith("/opt")
+    )
+
+
 def get_project_root() -> Path:
-    """Get project root directory"""
-    # Check for Docker/container environment first
-    container_path = Path("/opt/dagster/app")
-    if container_path.exists():
-        return container_path
+    """Get project root directory - handles both Docker and local environments"""
+    if is_docker_environment():
+        # Docker: credentials mounted at /opt/dagster/credentials
+        # Project structure: /opt/dagster/dagster_pipeline (code) + /opt/dagster/dbt (dbt)
+        return Path("/opt/dagster")
     
     # Local development - dagster/dagster_pipeline/assets/etl_assets.py
     # Go up 4 levels: assets -> dagster_pipeline -> dagster -> project_root
@@ -32,24 +42,58 @@ def get_project_root() -> Path:
 
 def get_etl_script_path() -> Path:
     """Get path to kafka_to_gcs_python.py"""
+    if is_docker_environment():
+        # In Docker, spark_streaming is mounted separately or use Python path
+        return Path("/opt/dagster/spark_streaming/src/kafka_to_gcs_python.py")
     return get_project_root() / "spark_streaming" / "src" / "kafka_to_gcs_python.py"
+
+
+def get_credentials_path() -> Path:
+    """Get path to GCP credentials file"""
+    # 1. Check environment variable first
+    env_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_creds and Path(env_creds).exists():
+        return Path(env_creds)
+    
+    # 2. Check Docker path
+    docker_creds = Path("/opt/dagster/credentials/pipeline-sa-key.json")
+    if docker_creds.exists():
+        return docker_creds
+    
+    # 3. Fall back to local path
+    return get_project_root() / "credentials" / "pipeline-sa-key.json"
+
+
+def get_kafka_bootstrap_servers() -> str:
+    """Get Kafka bootstrap servers - handles Docker vs local networking"""
+    # 1. Environment variable takes priority
+    env_kafka = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
+    if env_kafka:
+        return env_kafka
+    
+    # 2. Docker uses internal network name
+    if is_docker_environment():
+        return "redpanda:29092"
+    
+    # 3. Local development uses localhost
+    return "localhost:9092"
 
 
 def get_python_env() -> dict:
     """Get environment variables for ETL script"""
     env = {**os.environ}
     
-    project_root = get_project_root()
-    # Use pipeline-sa-key.json which has full GCS write permissions (storage.objects.create, delete)
-    credentials_path = project_root / "credentials" / "pipeline-sa-key.json"
+    credentials_path = get_credentials_path()
+    kafka_servers = get_kafka_bootstrap_servers()
     
     env.update({
         "GCP_PROJECT": os.getenv("GCP_PROJECT", "graphic-boulder-483814-g7"),
         "GCS_BUCKET": os.getenv("GCS_BUCKET", "tf-state-soundflow-123"),
-        "KAFKA_BOOTSTRAP_SERVERS": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
+        "KAFKA_BOOTSTRAP_SERVERS": kafka_servers,
         "GOOGLE_APPLICATION_CREDENTIALS": str(credentials_path),
         # Fix Windows encoding issues
         "PYTHONIOENCODING": "utf-8",
+        "PYTHONLEGACYWINDOWSSTDIO": "utf-8",
     })
     
     return env
