@@ -6,6 +6,7 @@ Assets for monitoring and triggering Spark streaming jobs.
 
 import os
 from datetime import datetime
+from pathlib import Path
 
 from dagster import (
     asset,
@@ -13,6 +14,20 @@ from dagster import (
     MetadataValue,
     Output,
 )
+
+
+def get_credentials_path() -> str:
+    """Get path to GCP credentials file"""
+    env_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_path and Path(env_path).exists():
+        return env_path
+    
+    # Default path: project_root/credentials/dbt-sa-key.json
+    default_path = Path(__file__).parent.parent.parent.parent.resolve() / "credentials" / "dbt-sa-key.json"
+    if default_path.exists():
+        return str(default_path)
+    
+    return None
 
 
 @asset(
@@ -27,6 +42,12 @@ def spark_job_status(context: AssetExecutionContext) -> Output[dict]:
     This asset queries the Dataproc API to get job status.
     """
     from google.cloud import dataproc_v1
+    
+    # Set credentials if not already set
+    creds_path = get_credentials_path()
+    if creds_path:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+        context.log.info(f"Using credentials: {creds_path}")
     
     project_id = os.getenv("GCP_PROJECT", "graphic-boulder-483814-g7")
     region = os.getenv("GCP_REGION", "asia-southeast1")
@@ -87,6 +108,12 @@ def gcs_data_freshness(context: AssetExecutionContext) -> Output[dict]:
     how recent the data is.
     """
     from google.cloud import storage
+    
+    # Set credentials if not already set
+    creds_path = get_credentials_path()
+    if creds_path:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+        context.log.info(f"Using credentials: {creds_path}")
     
     project_id = os.getenv("GCP_PROJECT", "graphic-boulder-483814-g7")
     bucket_name = os.getenv("GCS_BUCKET", "tf-state-soundflow-123")

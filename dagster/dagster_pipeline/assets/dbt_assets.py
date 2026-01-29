@@ -22,7 +22,12 @@ from dagster import (
 
 class DbtConfig(Config):
     """dbt configuration"""
-    target: str = "local"  # "local" for PostgreSQL, "prod" for BigQuery
+    target: str = os.getenv("DBT_TARGET", "local")  # "local" for PostgreSQL, "prod" for BigQuery
+
+
+def get_default_target() -> str:
+    """Get default dbt target from environment or use 'local'"""
+    return os.getenv("DBT_TARGET", "local")
 
 
 def get_dbt_env(target: str = "local") -> dict:
@@ -45,7 +50,7 @@ def get_dbt_env(target: str = "local") -> dict:
             "BQ_LOCATION": os.getenv("BQ_LOCATION", "asia-southeast1"),
             "GOOGLE_APPLICATION_CREDENTIALS": os.getenv(
                 "GOOGLE_APPLICATION_CREDENTIALS",
-                str(Path(__file__).parent.parent.parent.parent.parent / "credentials" / "dbt-sa-key.json")
+                str(Path(__file__).parent.parent.parent.parent.resolve() / "credentials" / "dbt-sa-key.json")
             ),
         })
     
@@ -59,8 +64,9 @@ def get_dbt_project_dir() -> Path:
     if container_path.exists():
         return container_path
     
-    # Local development
-    return Path(__file__).parent.parent.parent.parent.parent / "dbt"
+    # Local development - dagster/dagster_pipeline/assets/dbt_assets.py
+    # Go up 4 levels: assets -> dagster_pipeline -> dagster -> project_root
+    return (Path(__file__).parent.parent.parent.parent / "dbt").resolve()
 
 
 def run_dbt_command(args: list, context: AssetExecutionContext, target: str = "local") -> dict:

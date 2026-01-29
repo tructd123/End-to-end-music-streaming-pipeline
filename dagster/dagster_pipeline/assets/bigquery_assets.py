@@ -19,9 +19,11 @@ def get_bigquery_client():
     """Get BigQuery client"""
     from google.cloud import bigquery
     
+    # Local development - dagster/dagster_pipeline/assets/bigquery_assets.py
+    # Go up 4 levels: assets -> dagster_pipeline -> dagster -> project_root
     credentials_path = os.getenv(
         "GOOGLE_APPLICATION_CREDENTIALS",
-        str(Path(__file__).parent.parent.parent.parent.parent / "credentials" / "dbt-sa-key.json")
+        str((Path(__file__).parent.parent.parent.parent / "credentials" / "dbt-sa-key.json").resolve())
     )
     
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path

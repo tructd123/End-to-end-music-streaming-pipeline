@@ -1,0 +1,54 @@
+# =====================================================
+# SOUNDFLOW - DATA STREAMING PIPELINE
+# Requirements for Python virtual environment
+# =====================================================
+
+# ====================
+# Kafka / Streaming
+# ====================
+confluent-kafka>=2.3.0
+
+# ====================
+# Google Cloud Platform
+# ====================
+google-cloud-storage>=2.14.0
+google-cloud-bigquery>=3.14.0
+google-auth>=2.25.0
+
+# ====================
+# Data Processing
+# ====================
+pandas>=2.1.0
+pyarrow>=14.0.0
+numpy>=1.26.0
+
+# ====================
+# dbt (Data Build Tool)
+# ====================
+dbt-core>=1.7.0
+dbt-bigquery>=1.7.0
+
+# ====================
+# Dagster (Orchestration)
+# ====================
+dagster>=1.6.0
+dagster-webserver>=1.6.0
+
+# ====================
+# Database Drivers
+# ====================
+psycopg2-binary>=2.9.9
+
+# ====================
+# Utilities
+# ====================
+python-dotenv>=1.0.0
+requests>=2.31.0
+pyyaml>=6.0.1
+
+# ====================
+# Development / Testing
+# ====================
+pytest>=7.4.0
+black>=23.12.0
+ruff>=0.1.0

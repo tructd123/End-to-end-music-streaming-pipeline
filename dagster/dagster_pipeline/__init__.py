@@ -177,7 +177,15 @@ full_pipeline_job = define_asset_job(
         dbt_marts_models,
         dbt_test_results,
     ),
-    description="Run complete pipeline: EventSim → Kafka → GCS → dbt"
+    description="Run complete pipeline: EventSim → Kafka → GCS → dbt",
+    config={
+        "ops": {
+            "dbt_staging_models": {"config": {"target": "prod"}},
+            "dbt_intermediate_models": {"config": {"target": "prod"}},
+            "dbt_marts_models": {"config": {"target": "prod"}},
+            "dbt_test_results": {"config": {"target": "prod"}},
+        }
+    }
 )
 
 

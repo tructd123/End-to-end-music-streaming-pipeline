@@ -25,8 +25,9 @@ def get_project_root() -> Path:
     if container_path.exists():
         return container_path
     
-    # Local development
-    return Path(__file__).parent.parent.parent.parent.parent
+    # Local development - dagster/dagster_pipeline/assets/etl_assets.py
+    # Go up 4 levels: assets -> dagster_pipeline -> dagster -> project_root
+    return Path(__file__).parent.parent.parent.parent.resolve()
 
 
 def get_etl_script_path() -> Path:
@@ -39,16 +40,16 @@ def get_python_env() -> dict:
     env = {**os.environ}
     
     project_root = get_project_root()
-    credentials_path = project_root / "credentials" / "dbt-sa-key.json"
+    # Use pipeline-sa-key.json which has full GCS write permissions (storage.objects.create, delete)
+    credentials_path = project_root / "credentials" / "pipeline-sa-key.json"
     
     env.update({
         "GCP_PROJECT": os.getenv("GCP_PROJECT", "graphic-boulder-483814-g7"),
         "GCS_BUCKET": os.getenv("GCS_BUCKET", "tf-state-soundflow-123"),
         "KAFKA_BOOTSTRAP_SERVERS": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
-        "GOOGLE_APPLICATION_CREDENTIALS": os.getenv(
-            "GOOGLE_APPLICATION_CREDENTIALS",
-            str(credentials_path)
-        ),
+        "GOOGLE_APPLICATION_CREDENTIALS": str(credentials_path),
+        # Fix Windows encoding issues
+        "PYTHONIOENCODING": "utf-8",
     })
     
     return env
@@ -77,6 +78,7 @@ def kafka_to_gcs_transfer(context: AssetExecutionContext) -> Output[dict]:
     context.log.info(f"Running ETL script: {script_path}")
     context.log.info(f"Kafka bootstrap servers: {env.get('KAFKA_BOOTSTRAP_SERVERS')}")
     context.log.info(f"GCS bucket: {env.get('GCS_BUCKET')}")
+    context.log.info(f"Credentials: {env.get('GOOGLE_APPLICATION_CREDENTIALS')}")
     
     start_time = datetime.now()
     
@@ -87,7 +89,7 @@ def kafka_to_gcs_transfer(context: AssetExecutionContext) -> Output[dict]:
             text=True,
             env=env,
             cwd=str(script_path.parent),
-            timeout=600  # 10 minute timeout
+            timeout=300  # 5 minute timeout (reduced from 10)
         )
         
         end_time = datetime.now()

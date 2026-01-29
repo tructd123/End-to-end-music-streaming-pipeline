@@ -17,8 +17,9 @@ import pyarrow.parquet as pq
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 GCS_BUCKET = os.getenv("GCS_BUCKET", "tf-state-soundflow-123")
 GCP_PROJECT = os.getenv("GCP_PROJECT", "graphic-boulder-483814-g7")
+# Use pipeline-sa-key.json which has full GCS write permissions (storage.objects.create, delete)
 CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", 
-                             "E:/Individual/Data_streaming_pipeline/credentials/dbt-sa-key.json")
+                             "E:/Individual/Data_streaming_pipeline/credentials/pipeline-sa-key.json")
 
 # Set credentials
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = CREDENTIALS_PATH
@@ -35,16 +36,16 @@ def create_consumer(group_id: str = "kafka-to-gcs-batch"):
     return Consumer(conf)
 
 
-def consume_all_messages(consumer: Consumer, topic: str, timeout: float = 5.0) -> List[Dict]:
-    """Consume all messages from a topic"""
+def consume_all_messages(consumer: Consumer, topic: str, timeout: float = 2.0, max_messages: int = 50000) -> List[Dict]:
+    """Consume all messages from a topic (with limits to prevent timeout)"""
     print(f"\n  Subscribing to topic: {topic}")
     consumer.subscribe([topic])
     
     messages = []
     no_message_count = 0
-    max_no_message = 3  # Stop after 3 consecutive empty polls
+    max_no_message = 2  # Stop after 2 consecutive empty polls (faster exit)
     
-    while True:
+    while len(messages) < max_messages:
         msg = consumer.poll(timeout=timeout)
         
         if msg is None:
@@ -156,7 +157,7 @@ def process_topic(topic: str, output_path: str):
             blob_path = f"raw/{output_path}/data.parquet"
             upload_to_gcs(df, GCS_BUCKET, blob_path)
         
-        print(f"  ✓ Processed {len(messages)} records for {topic}")
+        print(f"  [OK] Processed {len(messages)} records for {topic}")
         return len(messages)
         
     finally:
@@ -188,7 +189,7 @@ def main():
             results.append((topic, count, "SUCCESS"))
             total_records += count
         except Exception as e:
-            print(f"  ✗ Error processing {topic}: {e}")
+            print(f"  [X] Error processing {topic}: {e}")
             results.append((topic, 0, f"ERROR: {e}"))
     
     # Summary
