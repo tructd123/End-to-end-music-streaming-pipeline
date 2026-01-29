@@ -1,16 +1,44 @@
-# Dagster instance configuration
+# ================================================================
+# Dagster Instance Configuration
+# ================================================================
+# This config supports both local development and Docker deployment
+#
+# LOCAL: Uses relative paths (requires DAGSTER_HOME to be set)
+# DOCKER: Uses /opt/dagster/dagster_home paths
+# ================================================================
+
+# Storage for run history, event logs, and compute logs
 storage:
   sqlite:
-    base_dir: /opt/dagster/dagster_home/storage
+    # Uses DAGSTER_HOME environment variable as base
+    # Local: set DAGSTER_HOME=./dagster/dagster_home
+    # Docker: set DAGSTER_HOME=/opt/dagster/dagster_home
+    base_dir:
+      env: DAGSTER_HOME
 
+# Run launcher - executes runs in the same process
 run_launcher:
   module: dagster.core.launcher
   class: DefaultRunLauncher
 
+# Scheduler - enables scheduled jobs (requires dagster-daemon)
 scheduler:
   module: dagster.core.scheduler
   class: DagsterDaemonScheduler
 
+# Run coordinator - manages run queue
 run_coordinator:
   module: dagster.core.run_coordinator
   class: QueuedRunCoordinator
+
+# Compute log manager - stores stdout/stderr from runs
+compute_logs:
+  module: dagster.core.storage.local_compute_log_manager
+  class: LocalComputeLogManager
+  config:
+    base_dir:
+      env: DAGSTER_HOME
+
+# Telemetry settings
+telemetry:
+  enabled: false
