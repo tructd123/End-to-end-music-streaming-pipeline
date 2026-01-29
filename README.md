@@ -182,13 +182,89 @@ Data_streaming_pipeline/
 │   ├── gcs.tf
 │   ├── bigquery.tf
 │   └── iam.tf
-├── dagster/                    # Orchestration (optional)
+├── dagster/                    # Orchestration
+├── dashboard/                  # Looker Studio & Metabase
 ├── credentials/                # GCP keys (gitignored)
 ├── docs/                       # Documentation
-├── docker-compose.yml
+├── docker-compose.yml          # Main compose (GCP mode)
+├── docker-compose.local.yml    # Local dev override
+├── docker-compose.continuous.yml # Continuous streaming
 ├── requirements.txt
 └── .env
 ```
+
+## 🐳 Docker Services
+
+### Service Overview
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **soundflow-redpanda** | 9092 | Kafka-compatible message broker |
+| **soundflow-redpanda-console** | 8080 | Kafka UI |
+| **soundflow-eventsim** | - | Event generator |
+| **soundflow-spark** | - | Spark streaming processor |
+| **soundflow-dagster-webserver** | 3000 | Dagster orchestration UI |
+| **soundflow-dagster-daemon** | - | Dagster background scheduler |
+| **soundflow-metabase** | 3030 | Dashboard (optional profile) |
+| **soundflow-postgres** | 5432 | Local database (local mode) |
+| **soundflow-adminer** | 8083 | Database admin UI (local mode) |
+
+### Docker Commands
+
+```bash
+# ==========================================
+# GCP MODE (Default - Production-like)
+# ==========================================
+
+# Start all services (GCP mode)
+docker-compose up -d
+
+# Start only Kafka + EventSim
+docker-compose up -d redpanda eventsim
+
+# Start with continuous event streaming
+docker-compose -f docker-compose.yml -f docker-compose.continuous.yml up -d
+
+# Start with Dashboard (Metabase)
+docker-compose --profile dashboard up -d
+
+# ==========================================
+# LOCAL MODE (Development with Postgres)
+# ==========================================
+
+# Start all services in local mode
+docker-compose -f docker-compose.yml -f docker-compose.local.yml up -d
+
+# ==========================================
+# COMMON COMMANDS
+# ==========================================
+
+# View all running containers
+docker-compose ps
+
+# View logs
+docker-compose logs -f eventsim
+docker-compose logs -f spark-streaming
+
+# Stop all services
+docker-compose down
+
+# Stop and remove volumes (clean reset)
+docker-compose down -v
+
+# Rebuild containers (after code changes)
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+### Access URLs
+
+| Service | URL |
+|---------|-----|
+| Redpanda Console | http://localhost:8080 |
+| Dagster UI | http://localhost:3000 |
+| Metabase Dashboard | http://localhost:3030 |
+| Adminer (local mode) | http://localhost:8083 |
 
 ## 🔧 Configuration
 
