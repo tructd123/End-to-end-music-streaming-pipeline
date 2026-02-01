@@ -6,6 +6,19 @@ Real-time data pipeline for music streaming analytics, simulating a platform lik
 
 Stream events from a fake music streaming service and build a pipeline to process real-time data. Data is periodically stored in a data lake, then transformed via dbt to create analytics dashboards.
 
+## Dataset
+
+[Eventsim](https://github.com/Interana/eventsim) is a program that generates event data to replicate page requests for a fake music web site. The results look like real use data, but are totally fake. The docker image is borrowed from [viirya's fork](https://github.com/viirya/eventsim) of it, as the original project has gone without maintenance for a few years now.
+
+Eventsim uses song data from [Million Songs Dataset](http://millionsongdataset.com) to generate events. For this project, approximately **50,000 events** were generated across 4 event types:
+
+| Event Type | Description |
+|------------|-------------|
+| `listen_events` | User plays a song |
+| `page_view_events` | User views a page |
+| `auth_events` | Login/logout actions |
+| `status_change_events` | Subscription changes |
+
 **Analytics Metrics:** Popular songs, Active users, User demographics, Listening patterns.
 
 ## 📦 Tech Stack
@@ -37,7 +50,11 @@ EventSim ──▶ Redpanda ──▶ Python ETL ──▶ GCS (Parquet)
                                     Dashboard
 ```
 
-## 🚀 Quick Start
+## � Dashboard Preview
+
+![SoundFlow Dashboard](images/Dashboard.png)
+
+## �🚀 Quick Start
 
 ### Prerequisites
 
