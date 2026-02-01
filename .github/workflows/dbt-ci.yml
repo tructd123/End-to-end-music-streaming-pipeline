@@ -1,0 +1,276 @@
+# =============================================================================
+# dbt CI/CD Pipeline
+# =============================================================================
+# Triggers:
+#   - PR to main: Run tests only (no deployment)
+#   - Push to main: Run full build + deploy to prod
+#
+# Required GitHub Secrets:
+#   - GCP_PROJECT_ID: Your GCP project ID
+#   - GCP_SA_KEY: Service account JSON key (base64 encoded)
+#   - BQ_LOCATION: BigQuery dataset location (e.g., asia-southeast1)
+# =============================================================================
+
+name: dbt CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dbt/**'
+      - '.github/workflows/dbt-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'dbt/**'
+      - '.github/workflows/dbt-ci.yml'
+
+env:
+  DBT_PROFILES_DIR: ./dbt
+  GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+  BQ_LOCATION: ${{ secrets.BQ_LOCATION }}
+
+jobs:
+  # ===========================================================================
+  # Job 1: Lint & Compile (runs on all PRs and pushes)
+  # ===========================================================================
+  lint:
+    name: 🔍 Lint & Compile
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dbt-bigquery sqlfluff sqlfluff-templater-dbt
+
+      - name: 🔐 Set up GCP credentials
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./credentials/dbt-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json" >> $GITHUB_ENV
+        
+      - name: 📁 Create credentials directory
+        run: mkdir -p ./credentials
+
+      - name: ✅ Verify dbt installation
+        working-directory: ./dbt
+        run: dbt --version
+
+      - name: 🔗 Test dbt connection
+        working-directory: ./dbt
+        run: dbt debug --target dev
+        env:
+          DBT_TARGET: dev
+
+      - name: 📋 dbt deps
+        working-directory: ./dbt
+        run: dbt deps
+
+      - name: 🔍 dbt compile
+        working-directory: ./dbt
+        run: dbt compile --target dev
+        env:
+          DBT_TARGET: dev
+
+      - name: 🧹 SQLFluff lint (optional - continues on error)
+        working-directory: ./dbt
+        continue-on-error: true
+        run: |
+          sqlfluff lint models/ --dialect bigquery || true
+
+  # ===========================================================================
+  # Job 2: Test (runs on all PRs and pushes)
+  # ===========================================================================
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dbt-bigquery
+
+      - name: 📁 Create credentials directory
+        run: mkdir -p ./credentials
+
+      - name: 🔐 Set up GCP credentials
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./credentials/dbt-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json" >> $GITHUB_ENV
+
+      - name: 📋 dbt deps
+        working-directory: ./dbt
+        run: dbt deps
+
+      - name: 🏗️ dbt build (dev dataset)
+        working-directory: ./dbt
+        run: dbt build --target dev --select state:modified+ --defer --state ./target
+        env:
+          DBT_TARGET: dev
+        continue-on-error: true
+
+      - name: 🧪 dbt test
+        working-directory: ./dbt
+        run: dbt test --target dev
+        env:
+          DBT_TARGET: dev
+
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dbt-test-results
+          path: |
+            dbt/target/run_results.json
+            dbt/target/manifest.json
+          retention-days: 7
+
+  # ===========================================================================
+  # Job 3: Deploy to Production (only on push to main)
+  # ===========================================================================
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dbt-bigquery
+
+      - name: 📁 Create credentials directory
+        run: mkdir -p ./credentials
+
+      - name: 🔐 Set up GCP credentials
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./credentials/dbt-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json" >> $GITHUB_ENV
+
+      - name: 📋 dbt deps
+        working-directory: ./dbt
+        run: dbt deps
+
+      - name: 🏗️ dbt run (production)
+        working-directory: ./dbt
+        run: dbt run --target prod
+        env:
+          DBT_TARGET: prod
+
+      - name: 🧪 dbt test (production)
+        working-directory: ./dbt
+        run: dbt test --target prod
+        env:
+          DBT_TARGET: prod
+
+      - name: 📖 Generate dbt docs
+        working-directory: ./dbt
+        run: dbt docs generate --target prod
+        env:
+          DBT_TARGET: prod
+
+      - name: 📊 Upload production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-prod-artifacts
+          path: |
+            dbt/target/manifest.json
+            dbt/target/run_results.json
+            dbt/target/catalog.json
+          retention-days: 30
+
+      - name: 💬 Notify success
+        if: success()
+        run: |
+          echo "✅ dbt deployment to production completed successfully!"
+          echo "📊 Models deployed at $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+      - name: ❌ Notify failure
+        if: failure()
+        run: |
+          echo "❌ dbt deployment to production failed!"
+          echo "Please check the logs for details."
+
+  # ===========================================================================
+  # Job 4: Generate Documentation (on push to main)
+  # ===========================================================================
+  docs:
+    name: 📚 Generate Docs
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dbt-bigquery
+
+      - name: 📁 Create credentials directory
+        run: mkdir -p ./credentials
+
+      - name: 🔐 Set up GCP credentials
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./credentials/dbt-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json" >> $GITHUB_ENV
+
+      - name: 📋 dbt deps
+        working-directory: ./dbt
+        run: dbt deps
+
+      - name: 📖 Generate dbt docs
+        working-directory: ./dbt
+        run: dbt docs generate --target prod
+        env:
+          DBT_TARGET: prod
+
+      - name: 📤 Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-docs
+          path: |
+            dbt/target/index.html
+            dbt/target/manifest.json
+            dbt/target/catalog.json
+            dbt/target/graph.gpickle
+          retention-days: 90
