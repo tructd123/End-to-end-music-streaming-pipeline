@@ -158,7 +158,6 @@ docker compose logs -f dagster-webserver
 - [ ] Cloud Composer for orchestration
 - [ ] Data quality monitoring
 - [ ] Real-time dashboard
-...
 
 ## 🔄 CI/CD
 
