@@ -156,9 +156,9 @@ docker compose logs -f dagster-webserver
 
 - [ ] Managed Kafka (Confluent Cloud)
 - [ ] Cloud Composer for orchestration
-- [x] CI/CD pipeline (GitHub Actions)
 - [ ] Data quality monitoring
 - [ ] Real-time dashboard
+...
 
 ## 🔄 CI/CD
 
