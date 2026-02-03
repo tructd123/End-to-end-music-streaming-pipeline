@@ -1,10 +1,10 @@
 # 🎵 SoundFlow
 
-Real-time data pipeline for music streaming analytics, simulating a platform like Spotify.
+A data pipeline with Kafka, Spark Streaming, dbt, Docker, Dagster, Terraform, GCP and much more!
 
 ## 📋 Objective
 
-Stream events from a fake music streaming service and build a pipeline to process real-time data. Data is periodically stored in a data lake, then transformed via dbt to create analytics dashboards.
+The project will stream events generated from a fake music streaming service (like Spotify) and create a data pipeline that consumes the real-time data. The data coming in would be similar to an event of a user listening to a song, navigating on the website, authenticating. The data would be processed in real-time and stored to the data lake periodically. The batch job will then consume this data, apply transformations, and create the desired tables for our dashboard to generate analytics. We will try to analyze metrics like popular songs, active users, user demographics etc.
 
 ## Dataset
 
