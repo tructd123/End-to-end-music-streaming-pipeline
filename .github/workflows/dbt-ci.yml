@@ -137,7 +137,6 @@ jobs:
           path: |
             dbt/target/manifest.json
           retention-days: 7
-          retention-days: 7
 
   # ===========================================================================
   # Job 3: Deploy to Production (only on push to main)
