@@ -109,8 +109,7 @@ dbt/target/
 dbt/dbt_packages/
 dbt/logs/
 dbt/.user.yml
-dbt/profiles.yml
-!dbt/profiles.yml.example
+# dbt/profiles.yml - committed because it uses env vars only
 
 # ====================
 # Dagster
@@ -166,3 +165,8 @@ logs/
 *.temp
 .cache/
 node_modules/
+
+# ====================
+# Example
+# ====================
+README.example.md
