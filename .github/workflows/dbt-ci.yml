@@ -54,12 +54,12 @@ jobs:
           pip install dbt-bigquery sqlfluff sqlfluff-templater-dbt
 
       - name: � Create credentials directory
-        run: mkdir -p ./credentials
+        run: mkdir -p ${{ github.workspace }}/credentials
 
       - name: 🔐 Set up GCP credentials
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./credentials/dbt-sa-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json" >> $GITHUB_ENV
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ${{ github.workspace }}/credentials/dbt-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/credentials/dbt-sa-key.json" >> $GITHUB_ENV
 
       - name: ✅ Verify dbt installation
         working-directory: ./dbt
@@ -111,12 +111,12 @@ jobs:
           pip install dbt-bigquery
 
       - name: 📁 Create credentials directory
-        run: mkdir -p ./credentials
+        run: mkdir -p ${{ github.workspace }}/credentials
 
       - name: 🔐 Set up GCP credentials
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./credentials/dbt-sa-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json" >> $GITHUB_ENV
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ${{ github.workspace }}/credentials/dbt-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/credentials/dbt-sa-key.json" >> $GITHUB_ENV
 
       - name: 📋 dbt deps
         working-directory: ./dbt
@@ -171,12 +171,12 @@ jobs:
           pip install dbt-bigquery
 
       - name: 📁 Create credentials directory
-        run: mkdir -p ./credentials
+        run: mkdir -p ${{ github.workspace }}/credentials
 
       - name: 🔐 Set up GCP credentials
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./credentials/dbt-sa-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json" >> $GITHUB_ENV
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ${{ github.workspace }}/credentials/dbt-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/credentials/dbt-sa-key.json" >> $GITHUB_ENV
 
       - name: 📋 dbt deps
         working-directory: ./dbt
@@ -247,12 +247,12 @@ jobs:
           pip install dbt-bigquery
 
       - name: 📁 Create credentials directory
-        run: mkdir -p ./credentials
+        run: mkdir -p ${{ github.workspace }}/credentials
 
       - name: 🔐 Set up GCP credentials
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./credentials/dbt-sa-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/dbt-sa-key.json" >> $GITHUB_ENV
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ${{ github.workspace }}/credentials/dbt-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/credentials/dbt-sa-key.json" >> $GITHUB_ENV
 
       - name: 📋 dbt deps
         working-directory: ./dbt
