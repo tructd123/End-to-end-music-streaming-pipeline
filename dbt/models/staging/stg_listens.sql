@@ -1,3 +1,5 @@
+-- CI/CD test: February 6, 2026
+
 {{
     config(
         materialized='view',
