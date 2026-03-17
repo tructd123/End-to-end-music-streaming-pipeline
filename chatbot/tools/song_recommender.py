@@ -6,8 +6,77 @@ based on user preferences and the SoundFlow music catalog.
 """
 
 from langchain_core.tools import tool
+from google.cloud import bigquery
 
 from rag.retriever import get_retriever
+from rag.vectorstore import collection_exists
+from config import settings
+
+
+def _fmt_int(value) -> str:
+    """Format int-like values safely for user display."""
+    try:
+        if value is None:
+            return "N/A"
+        return f"{int(value):,}"
+    except (TypeError, ValueError):
+        return "N/A"
+
+
+def _looks_like_trending_query(query: str) -> bool:
+    q = (query or "").lower()
+    keywords = [
+        "thịnh hành",
+        "thinh hanh",
+        "trending",
+        "hot",
+        "phổ biến",
+        "pho bien",
+        "top",
+    ]
+    return any(k in q for k in keywords)
+
+
+def _fetch_trending_from_bigquery(limit: int) -> str:
+    """Fallback path: query top songs directly from BigQuery marts."""
+    client = bigquery.Client(project=settings.GCP_PROJECT)
+
+    sql = f"""
+    SELECT
+        rank,
+        song,
+        artist,
+        total_plays,
+        unique_listeners,
+        paid_ratio_pct
+    FROM `{settings.GCP_PROJECT}.{settings.BQ_DATASET_MARTS}.mart_top_songs`
+    ORDER BY total_plays DESC
+    LIMIT @limit
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("limit", "INT64", limit),
+        ]
+    )
+
+    rows = list(client.query(sql, job_config=job_config).result())
+    if not rows:
+        return "Không có dữ liệu bài hát thịnh hành trong BigQuery."
+
+    lines = []
+    for i, row in enumerate(rows, 1):
+        lines.append(
+            f"{i}. 🎵 **{row.song}** - {row.artist}\n"
+            f"   ▶️ Lượt nghe: {_fmt_int(row.total_plays)} | "
+            f"👤 Người nghe: {_fmt_int(row.unique_listeners)} | "
+            f"💎 Tỉ lệ Paid: {row.paid_ratio_pct}%"
+        )
+
+    return (
+        "🔥 **Top bài hát thịnh hành** (fallback từ BigQuery):\n\n"
+        + "\n\n".join(lines)
+    )
 
 
 @tool
@@ -24,6 +93,23 @@ def recommend_songs(query: str, top_k: int = 5) -> str:
         top_k: Số lượng bài hát cần gợi ý (mặc định 5)
     """
     try:
+        top_k = max(1, min(int(top_k), 20))
+
+        # If RAG dependencies are not ready, fallback for trending requests.
+        rag_ready = bool(settings.GOOGLE_API_KEY) and collection_exists(
+            settings.CHROMA_COLLECTION_SONGS
+        )
+
+        if not rag_ready and _looks_like_trending_query(query):
+            return _fetch_trending_from_bigquery(top_k)
+
+        if not rag_ready:
+            return (
+                "RAG chưa sẵn sàng để gợi ý theo ngữ nghĩa. "
+                "Hãy kiểm tra GEMINI_API_KEY và chạy `python -m rag.ingest --force` "
+                "trong thư mục chatbot."
+            )
+
         retriever = get_retriever(top_k=top_k)
         docs = retriever.invoke(query)
 
@@ -35,8 +121,8 @@ def recommend_songs(query: str, top_k: int = 5) -> str:
             metadata = doc.metadata
             results.append(
                 f"{i}. 🎵 **{metadata.get('song', 'N/A')}** - {metadata.get('artist', 'N/A')}\n"
-                f"   ▶️ Lượt nghe: {metadata.get('total_plays', 'N/A'):,} | "
-                f"👤 Người nghe: {metadata.get('unique_listeners', 'N/A'):,} | "
+                f"   ▶️ Lượt nghe: {_fmt_int(metadata.get('total_plays'))} | "
+                f"👤 Người nghe: {_fmt_int(metadata.get('unique_listeners'))} | "
                 f"💎 Tỉ lệ Paid: {metadata.get('paid_ratio_pct', 'N/A')}%"
             )
 
