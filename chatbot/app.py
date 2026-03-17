@@ -13,14 +13,24 @@ import sys
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from agent.graph import graph
 from config import settings
+from memory.store import ConversationStore
+
+# Global conversation store instance
+conversation_store = ConversationStore(
+    ttl_seconds=settings.MEMORY_TTL_SECONDS,
+    max_sessions=settings.MEMORY_MAX_SESSIONS,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +47,7 @@ async def lifespan(app: FastAPI):
         print("✅ All required settings configured!")
 
     print(f"🚀 SoundFlow Chatbot API starting on {settings.API_HOST}:{settings.API_PORT}")
+    print(f"💾 Memory: TTL={settings.MEMORY_TTL_SECONDS}s, max={settings.MEMORY_MAX_SESSIONS} sessions")
     yield
     print("👋 Shutting down...")
 
@@ -53,6 +64,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Mount static files (CSS, JS)
+_static_dir = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 # CORS - allow frontend connections
 app.add_middleware(
@@ -72,6 +87,7 @@ class ChatRequest(BaseModel):
 
     message: str
     user_id: str | None = None
+    conversation_id: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -79,11 +95,18 @@ class ChatResponse(BaseModel):
 
     response: str
     user_id: str | None = None
+    conversation_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+@app.get("/")
+async def serve_chat_ui():
+    """Serve the frontend chat UI."""
+    return FileResponse(os.path.join(_static_dir, "index.html"))
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -100,16 +123,25 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     try:
-        # Build initial state
         from langchain_core.messages import HumanMessage
 
+        # Load or create conversation session
+        conv_id, history = conversation_store.get_or_create(
+            request.conversation_id
+        )
+
+        # Build state with conversation history + new message
         initial_state = {
-            "messages": [HumanMessage(content=request.message)],
+            "messages": history + [HumanMessage(content=request.message)],
             "user_id": request.user_id,
+            "conversation_id": conv_id,
         }
 
         # Run the agent graph
-        result = graph.invoke(initial_state)
+        result = await graph.ainvoke(initial_state)
+
+        # Save updated message history to store
+        conversation_store.save(conv_id, result["messages"])
 
         # Extract the last AI message
         ai_message = result["messages"][-1]
@@ -117,7 +149,6 @@ async def chat(request: ChatRequest):
 
         # Handle Gemini's content format: can be str or list of parts
         if isinstance(response_content, list):
-            # Extract text from content parts like [{'type': 'text', 'text': '...'}]
             text_parts = []
             for part in response_content:
                 if isinstance(part, dict) and "text" in part:
@@ -131,6 +162,7 @@ async def chat(request: ChatRequest):
         return ChatResponse(
             response=response_text,
             user_id=request.user_id,
+            conversation_id=conv_id,
         )
 
     except Exception as e:
@@ -138,6 +170,63 @@ async def chat(request: ChatRequest):
             status_code=500,
             detail=f"Error processing message: {str(e)}",
         )
+
+
+@app.get("/chat/stream")
+async def chat_stream(
+    message: str,
+    user_id: str | None = None,
+    conversation_id: str | None = None,
+):
+    """SSE streaming endpoint.
+
+    Streams agent response tokens in real-time via Server-Sent Events.
+
+    Query params:
+        message: User message text.
+        user_id: Optional user ID for personalized queries.
+        conversation_id: Optional session ID for conversation memory.
+    """
+    if not message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    from langchain_core.messages import HumanMessage
+    from sse_starlette.sse import EventSourceResponse
+    from agent.streaming import stream_agent_response
+
+    # Load or create conversation session
+    conv_id, history = conversation_store.get_or_create(conversation_id)
+
+    # Build messages with history + new message
+    messages = history + [HumanMessage(content=message)]
+
+    async def event_generator():
+        collected_tokens = []
+        async for event_data in stream_agent_response(
+            messages=messages,
+            user_id=user_id,
+            conversation_id=conv_id,
+        ):
+            # Collect tokens for saving to memory later
+            import json as _json
+            try:
+                parsed = _json.loads(event_data)
+                if parsed.get("type") == "token":
+                    collected_tokens.append(parsed.get("content", ""))
+            except (ValueError, KeyError):
+                pass
+            yield event_data
+
+        # Save conversation with the full response to memory
+        from langchain_core.messages import AIMessage
+        full_response = "".join(collected_tokens)
+        if full_response:
+            updated_messages = messages + [
+                AIMessage(content=full_response)
+            ]
+            conversation_store.save(conv_id, updated_messages)
+
+    return EventSourceResponse(event_generator())
 
 
 # ---------------------------------------------------------------------------

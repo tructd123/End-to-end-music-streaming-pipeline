@@ -36,13 +36,18 @@ ALL_TOOLS = [
 # ---------------------------------------------------------------------------
 # Nodes
 # ---------------------------------------------------------------------------
-def chatbot_node(state: AgentState) -> dict:
-    """Main LLM node that processes messages and decides whether to call tools."""
+async def chatbot_node(state: AgentState) -> dict:
+    """Main LLM node that processes messages and decides whether to call tools.
+
+    Uses async `ainvoke` so that `graph.astream_events()` can produce
+    `on_chat_model_stream` events for real-time token streaming.
+    """
 
     llm = ChatGoogleGenerativeAI(
         model=settings.LLM_MODEL,
         google_api_key=settings.GOOGLE_API_KEY,
         temperature=0.7,
+        streaming=True,
     )
 
     # Bind tools so the LLM can generate tool calls
@@ -55,7 +60,7 @@ def chatbot_node(state: AgentState) -> dict:
     if not messages or not isinstance(messages[0], SystemMessage):
         messages = [SystemMessage(content=SOUNDFLOW_SYSTEM_PROMPT)] + messages
 
-    response = llm_with_tools.invoke(messages)
+    response = await llm_with_tools.ainvoke(messages)
     return {"messages": [response]}
 
 
