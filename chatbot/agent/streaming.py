@@ -18,12 +18,14 @@ Event types:
 """
 
 import json
+import re
 import traceback
 from typing import AsyncGenerator, Optional
 
 from langchain_core.messages import HumanMessage, AIMessage
 
 from agent.graph import graph
+from agent.response_format import normalize_response_text
 
 
 def _sse_event(data: dict) -> str:
@@ -43,13 +45,23 @@ def _chunk_text(text: str, chunk_size: int = 4) -> list[str]:
     """
     if not text:
         return []
-    words = text.split(" ")
     chunks = []
-    for i in range(0, len(words), chunk_size):
-        chunk = " ".join(words[i: i + chunk_size])
-        if i + chunk_size < len(words):
-            chunk += " "
-        chunks.append(chunk)
+    parts = re.split(r"(\n+)", text)
+    for part in parts:
+        if not part:
+            continue
+        # Preserve line breaks as standalone chunks.
+        if part.startswith("\n"):
+            chunks.append(part)
+            continue
+
+        words = part.split(" ")
+        for i in range(0, len(words), chunk_size):
+            chunk = " ".join(words[i: i + chunk_size])
+            if i + chunk_size < len(words):
+                chunk += " "
+            chunks.append(chunk)
+
     return chunks
 
 
@@ -113,6 +125,8 @@ async def stream_agent_response(
                                 full_text = "\n".join(text_parts)
                             else:
                                 full_text = str(content)
+
+                            full_text = normalize_response_text(full_text)
 
                             # Yield word chunks with small delays
                             for chunk in _chunk_text(full_text):

@@ -26,13 +26,36 @@ def _fmt_int(value) -> str:
 def _looks_like_trending_query(query: str) -> bool:
     q = (query or "").lower()
     keywords = [
-        "thịnh hành",
-        "thinh hanh",
-        "trending",
-        "hot",
-        "phổ biến",
-        "pho bien",
-        "top",
+        # --- Danh sách cũ của bạn ---
+        "thịnh hành", "thinh hanh",
+        "trending", "hot",
+        "phổ biến", "pho bien",
+        "top", 
+        "nghe nhiều nhất", "nghe nhieu nhat",
+        "hay nhất", "nổi tiếng",
+        
+        # --- Nhóm: Chất lượng & Cảm xúc (Quality & Feelings) ---
+        "hay nhat", # Bổ sung bản không dấu cho "hay nhất"
+        "đỉnh nhất", "dinh nhat",
+        "tuyệt nhất", "tuyet nhat",
+        "được yêu thích", "duoc yeu thich",
+        "yêu thích nhất", "yeu thich nhat",
+        "bất hủ", "bat hu", # Dành cho nhạc xưa/kinh điển
+        "đỉnh của chóp", # Slang gen Z hay dùng
+        
+        # --- Nhóm: Xu hướng & Bảng xếp hạng (Trends & Charts) ---
+        "xu hướng", "xu huong",
+        "bảng xếp hạng", "bang xep hang", "bxh",
+        "hit", "siêu hit", "sieu hit",
+        "đình đám", "dinh dam",
+        "đang nổi", "dang noi",
+        "viral",
+        
+        # --- Nhóm: Lượt xem/Nghe (Views & Streams) ---
+        "triệu view", "trieu view",
+        "nhiều lượt nghe", "nhieu luot nghe",
+        "nhiều view", "nhieu view",
+        "best", "top 10", "top 100"
     ]
     return any(k in q for k in keywords)
 
@@ -95,13 +118,14 @@ def recommend_songs(query: str, top_k: int = 5) -> str:
     try:
         top_k = max(1, min(int(top_k), 20))
 
+        # Always route trending/top requests to BigQuery directly for accurate metrics
+        if _looks_like_trending_query(query):
+            return _fetch_trending_from_bigquery(top_k)
+
         # If RAG dependencies are not ready, fallback for trending requests.
         rag_ready = bool(settings.GOOGLE_API_KEY) and collection_exists(
             settings.CHROMA_COLLECTION_SONGS
         )
-
-        if not rag_ready and _looks_like_trending_query(query):
-            return _fetch_trending_from_bigquery(top_k)
 
         if not rag_ready:
             return (

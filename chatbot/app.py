@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from agent.graph import graph
+from agent.response_format import normalize_response_text
 from config import settings
 from memory.store import ConversationStore
 
@@ -101,6 +102,12 @@ class ChatResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Handle favicon requests to prevent 404 errors."""
+    from fastapi import Response
+    return Response(status_code=204)
+
 @app.get("/")
 async def serve_chat_ui():
     """Serve the frontend chat UI."""
@@ -158,6 +165,8 @@ async def chat(request: ChatRequest):
             response_text = "\n".join(text_parts)
         else:
             response_text = str(response_content)
+
+        response_text = normalize_response_text(response_text)
 
         return ChatResponse(
             response=response_text,

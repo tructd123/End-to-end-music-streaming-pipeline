@@ -79,8 +79,10 @@ class Settings:
             creds = os.path.normpath(os.path.join(_BASE_DIR, creds))
         if creds:
             self.GOOGLE_APPLICATION_CREDENTIALS = creds
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds
-
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds            
+        chroma_dir = (self.CHROMA_PERSIST_DIR or "").strip()
+        if chroma_dir and not os.path.isabs(chroma_dir):
+            self.CHROMA_PERSIST_DIR = os.path.normpath(os.path.join(_BASE_DIR, chroma_dir))
     def validate(self) -> list[str]:
         """Validate required settings and return list of missing ones."""
         missing = []

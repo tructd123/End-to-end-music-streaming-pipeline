@@ -135,3 +135,61 @@ def search_artists(query: str, limit: int = 10) -> str:
 
     except Exception as e:
         return f"Lỗi tìm kiếm: {str(e)}"
+
+@tool
+def search_songs_by_artist(artist_name: str, limit: int = 5) -> str:
+    """Lấy danh sách các bài hát của một nghệ sĩ cụ thể.
+
+    Sử dụng công cụ này khi người dùng muốn:
+    - Nghe nhạc của một nghệ sĩ (ví dụ: "gợi ý bài hát của Justin Bieber", "nhạc của Sơn Tùng")
+    - Xem danh sách bài hát của một nghệ sĩ cụ thể
+
+    Args:
+        artist_name: Tên nghệ sĩ (ví dụ: "Justin Bieber")
+        limit: Số bài hát tối đa trả về (mặc định 5)
+    """
+    try:
+        client = _get_bq_client()
+
+        sql = f"""
+        SELECT
+            rank,
+            song,
+            artist,
+            total_plays,
+            unique_listeners,
+            paid_ratio_pct
+        FROM `{settings.GCP_PROJECT}.{settings.BQ_DATASET_MARTS}.mart_top_songs`
+        WHERE LOWER(artist) LIKE CONCAT('%', LOWER(@artist_name), '%')
+        ORDER BY total_plays DESC
+        LIMIT @limit
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("artist_name", "STRING", artist_name),        
+                bigquery.ScalarQueryParameter("limit", "INT64", limit),
+            ]
+        )
+
+        rows = list(client.query(sql, job_config=job_config).result())
+
+        if not rows:
+            return f"Không tìm thấy bài hát nào của nghệ sĩ '{artist_name}' trong cơ sở dữ liệu."
+
+        results = []
+        for i, row in enumerate(rows, 1):
+            results.append(
+                f"{i}. 🎵 **{row.song}** - {row.artist}\n"
+                f"   ▶️ {row.total_plays:,} lượt nghe | "
+                f"👤 {row.unique_listeners:,} người nghe | "
+                f"💎 Tỉ lệ Paid: {row.paid_ratio_pct}%"
+            )
+
+        return (
+            f"🎧 **Top bài hát của nghệ sĩ '{artist_name}'**:\n\n"
+            + "\n\n".join(results)
+        )
+
+    except Exception as e:
+        return f"Lỗi tìm kiếm bài hát theo nghệ sĩ: {str(e)}"

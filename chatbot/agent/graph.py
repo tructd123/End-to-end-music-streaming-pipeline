@@ -12,24 +12,36 @@ from langgraph.prebuilt import ToolNode
 from agent.state import AgentState
 from agent.prompts import SOUNDFLOW_SYSTEM_PROMPT
 from tools.song_recommender import recommend_songs
-from tools.user_stats import get_user_stats
+from tools.smart_recommender import recommend_personalized
+from tools.mood_recommender import recommend_by_mood
+from tools.user_stats import get_user_stats, get_user_listening_history
 from tools.subscription import change_subscription
-from tools.search import search_songs, search_artists
-from tools.playlist import get_playlist, create_playlist
+from tools.search import search_songs, search_artists, search_songs_by_artist
+from tools.playlist import (
+    get_playlist, create_playlist, delete_playlist,
+    update_playlist, remove_song_from_playlist,
+)
 from config import settings
 
 
 # ---------------------------------------------------------------------------
 # All tools available to the agent
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------   
 ALL_TOOLS = [
     recommend_songs,
+    recommend_personalized,
+    recommend_by_mood,
     get_user_stats,
+    get_user_listening_history,
     change_subscription,
     search_songs,
     search_artists,
+    search_songs_by_artist,
     get_playlist,
     create_playlist,
+    delete_playlist,
+    update_playlist,
+    remove_song_from_playlist,
 ]
 
 

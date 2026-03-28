@@ -22,13 +22,79 @@ const newChatBtn = document.getElementById("new-chat-btn");
 // ===================== Allowed Tool Names (whitelist) =====================
 const TOOL_LABELS = Object.freeze({
     recommend_songs: "🎧 Đang tìm gợi ý bài hát...",
+    recommend_personalized: "🎧 Đang tìm gợi ý cho bạn...",
+    recommend_by_mood: "🎭 Đang phân tích cảm xúc...",
     get_user_stats: "📊 Đang lấy thống kê nghe nhạc...",
+    get_user_listening_history: "🕒 Đang lấy lịch sử nghe nhạc...",
     change_subscription: "💳 Đang xử lý subscription...",
     search_songs: "🔍 Đang tìm kiếm bài hát...",
     search_artists: "🔍 Đang tìm kiếm nghệ sĩ...",
+    search_songs_by_artist: "🔍 Đang tìm bài hát của nghệ sĩ...",
     get_playlist: "📋 Đang lấy danh sách playlist...",
     create_playlist: "📝 Đang tạo playlist...",
+    delete_playlist: "🗑️ Đang xóa playlist...",
+    update_playlist: "📝 Đang cập nhật playlist...",
+    remove_song_from_playlist: "🗑️ Đang xóa bài hát khỏi playlist...",
 });
+
+function normalizeDisplayText(text) {
+    if (!text) return "";
+
+    let out = String(text);
+
+    // Convert escaped newlines from JSON-like payloads.
+    out = out.replace(/\\n/g, "\n");
+
+    // Convert markdown-ish emphasis markers to plain text for this UI.
+    out = out.replace(/\*\*(.*?)\*\*/g, "$1");
+
+    // Split common one-line list patterns.
+    out = out.replace(/\s+(?=\d+\.\s)/g, "\n\n");
+    out = out.replace(/\s+\*\s+/g, "\n- ");
+    out = out.replace(/:\s*(?=(\d+\.\s|-\s))/g, ":\n\n");
+
+    // Normalize real bullet lines only (do not split song - artist patterns).
+    out = out.replace(/(^|\n)\s*-\s+/g, "$1- ");
+
+    // Keep CTA prompt on a separate paragraph.
+    out = out.replace(/\s+(?=(Bạn muốn|Ban muon|Bạn cần|Bạn có muốn)\b)/g, "\n\n");
+
+    // Clean up spacing.
+    out = out.replace(/\n{3,}/g, "\n\n").trim();
+    return out;
+}
+
+function finalizeListFormatting(text) {
+    if (!text) return "";
+
+    let out = String(text);
+    const numberMatches = out.match(/\d+\.\s/g) || [];
+
+    // Force multiline when we detect compact numbered lists.
+    if (numberMatches.length >= 2) {
+        const parts = out.split(/(?=\d+\.\s)/g).map((p) => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+            const formatted = parts.map((part) => {
+                let item = part;
+
+                // Keep song and artist on one line when model outputs "song - artist".
+                item = item.replace(/\n\s*-\s*/g, " - ");
+
+                // Move metric blocks to indented new lines.
+                item = item.replace(/\s+(▶️|👤|💎|⏰|🎤|🎵|📅)/g, "\n   $1");
+
+                // Remove trailing separators like " |" to reduce visual noise.
+                item = item.replace(/\s*\|\s*$/gm, "");
+                return item.trim();
+            });
+            out = formatted.join("\n\n");
+        }
+    }
+
+    // Put closing prompts on a separate paragraph.
+    out = out.replace(/\s+(?=(Bạn có muốn|Hay bạn muốn|Bạn muốn)\b)/g, "\n\n");
+    return out;
+}
 
 // ===================== Event Listeners =====================
 sendBtn.addEventListener("click", () => sendMessage());
@@ -131,12 +197,26 @@ function addMessage(role, content) {
  * No innerHTML is used — fully XSS-safe.
  */
 function setSanitizedContent(element, text) {
-    if (!text) {
+    const normalized = normalizeDisplayText(text);
+
+    if (!normalized) {
         element.textContent = "";
         return;
     }
-    // Use textContent only — no HTML injection possible
-    element.textContent = text;
+
+    // Clear existing nodes safely.
+    while (element.firstChild) {
+        element.removeChild(element.firstChild);
+    }
+
+    // Preserve line breaks without using innerHTML.
+    const lines = String(normalized).split("\n");
+    lines.forEach((line, idx) => {
+        element.appendChild(document.createTextNode(line));
+        if (idx < lines.length - 1) {
+            element.appendChild(document.createElement("br"));
+        }
+    });
 }
 
 function addTypingIndicator() {
@@ -296,6 +376,12 @@ async function streamResponse(message) {
 
             case "done":
                 removeTypingIndicator();
+                if (assistantContentDiv && collectedText) {
+                    setSanitizedContent(
+                        assistantContentDiv,
+                        finalizeListFormatting(collectedText)
+                    );
+                }
                 if (event.conversation_id) {
                     state.conversationId = event.conversation_id;
                     sessionStorage.setItem(
