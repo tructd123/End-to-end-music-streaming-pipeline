@@ -123,6 +123,7 @@ def get_user_listening_history(user_id: str, limit: int = 10) -> str:
         FROM `{settings.GCP_PROJECT}.{staging_dataset}.stg_listens`
         WHERE CAST(user_id AS STRING) = @user_id
           AND song IS NOT NULL
+          AND event_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
         ORDER BY event_timestamp DESC
         LIMIT @limit
         """
