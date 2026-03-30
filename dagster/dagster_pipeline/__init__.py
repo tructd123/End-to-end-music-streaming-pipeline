@@ -60,6 +60,10 @@ from .assets.etl_assets import (
     eventsim_generate,
 )
 
+from .assets.chatbot_assets import (
+    rag_chromadb_ingestion,
+)
+
 
 # ============================================
 # ALL ASSETS
@@ -321,6 +325,8 @@ defs = Definitions(
         kafka_health_check,
         kafka_to_gcs_transfer,
         eventsim_generate,
+        # Chatbot RAG assets
+        rag_chromadb_ingestion,
     ],
     jobs=[
         dbt_full_pipeline_job,
