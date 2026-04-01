@@ -54,7 +54,7 @@ EventSim ──▶ Redpanda ──▶ Python ETL ──▶ GCS (Parquet)
 
 ## 🤖 AI Chatbot Preview
 
-![SoundFlow AI Chatbot](images/UI_chatbot.jpg)
+![SoundFlow AI Chatbot](images/UI_chatbot.png)
 
 SoundFlow includes an intelligent AI Chatbot powered by **Google Gemini** and **LangGraph**. It utilizes RAG (Retrieval-Augmented Generation) with **ChromaDB** to recommend personalized songs, fetch real-time analytics from BigQuery, and assist users with their subscriptions.
 
