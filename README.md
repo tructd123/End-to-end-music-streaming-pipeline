@@ -34,6 +34,7 @@ Eventsim uses song data from [Million Songs Dataset](http://millionsongdataset.c
 | Infrastructure | Terraform |
 | Containerization | Docker |
 | Dashboard | Looker Studio / Metabase |
+| AI Chatbot | LangGraph, Gemini, FastAPI, ChromaDB |
 
 ## 🏗️ Architecture
 
@@ -46,11 +47,20 @@ EventSim ──▶ Redpanda ──▶ Python ETL ──▶ GCS (Parquet)
                                               ▼
                               dbt (staging → marts)
                                               │
-                                              ▼
-                                    Dashboard
+                                   ┌──────────┴──────────┐
+                                   ▼                     ▼
+                               Dashboard             AI Chatbot
 ```
 
-## � Dashboard Preview
+## 🤖 AI Chatbot Preview
+
+![SoundFlow AI Chatbot](images/UI_chatbot.jpg)
+
+SoundFlow includes an intelligent AI Chatbot powered by **Google Gemini** and **LangGraph**. It utilizes RAG (Retrieval-Augmented Generation) with **ChromaDB** to recommend personalized songs, fetch real-time analytics from BigQuery, and assist users with their subscriptions.
+
+📖 **Detailed Configuration & Setup**: Check out the [Chatbot Documentation](docs/CHATBOT_CONFIG.md).
+
+## 📈 Dashboard Preview
 
 ![SoundFlow Dashboard](images/Dashboard.png)
 
