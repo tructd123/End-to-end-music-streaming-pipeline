@@ -5,9 +5,9 @@ In-memory session store for maintaining conversation history across requests.
 Supports TTL-based cleanup and maximum session limits.
 """
 
+import threading
 import time
 import uuid
-import threading
 from typing import Optional
 
 from langchain_core.messages import BaseMessage
@@ -37,9 +37,7 @@ class ConversationStore:
     # Public API
     # ------------------------------------------------------------------
 
-    def get_or_create(
-        self, conversation_id: Optional[str] = None
-    ) -> tuple[str, list[BaseMessage]]:
+    def get_or_create(self, conversation_id: Optional[str] = None) -> tuple[str, list[BaseMessage]]:
         """Get an existing session or create a new one.
 
         Args:
@@ -72,9 +70,7 @@ class ConversationStore:
             }
             return conversation_id, []
 
-    def save(
-        self, conversation_id: str, messages: list[BaseMessage]
-    ) -> None:
+    def save(self, conversation_id: str, messages: list[BaseMessage]) -> None:
         """Save updated message history for a session.
 
         Args:
@@ -104,11 +100,7 @@ class ConversationStore:
     def _cleanup_expired(self) -> int:
         """Remove sessions that exceed TTL. Returns count removed."""
         now = time.time()
-        expired = [
-            cid
-            for cid, s in self._sessions.items()
-            if now - s["last_active"] > self.ttl_seconds
-        ]
+        expired = [cid for cid, s in self._sessions.items() if now - s["last_active"] > self.ttl_seconds]
         for cid in expired:
             del self._sessions[cid]
         return len(expired)
@@ -117,7 +109,5 @@ class ConversationStore:
         """Remove the oldest session (by last_active)."""
         if not self._sessions:
             return
-        oldest_id = min(
-            self._sessions, key=lambda cid: self._sessions[cid]["last_active"]
-        )
+        oldest_id = min(self._sessions, key=lambda cid: self._sessions[cid]["last_active"])
         del self._sessions[oldest_id]

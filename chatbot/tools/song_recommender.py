@@ -5,12 +5,12 @@ Uses RAG (Retrieval-Augmented Generation) to recommend songs
 based on user preferences and the SoundFlow music catalog.
 """
 
-from langchain_core.tools import tool
 from google.cloud import bigquery
+from langchain_core.tools import tool
 
+from config import settings
 from rag.retriever import get_retriever
 from rag.vectorstore import collection_exists
-from config import settings
 
 
 def _fmt_int(value) -> str:
@@ -27,35 +27,54 @@ def _looks_like_trending_query(query: str) -> bool:
     q = (query or "").lower()
     keywords = [
         # --- Danh sách cũ của bạn ---
-        "thịnh hành", "thinh hanh",
-        "trending", "hot",
-        "phổ biến", "pho bien",
-        "top", 
-        "nghe nhiều nhất", "nghe nhieu nhat",
-        "hay nhất", "nổi tiếng",
-        
+        "thịnh hành",
+        "thinh hanh",
+        "trending",
+        "hot",
+        "phổ biến",
+        "pho bien",
+        "top",
+        "nghe nhiều nhất",
+        "nghe nhieu nhat",
+        "hay nhất",
+        "nổi tiếng",
         # --- Nhóm: Chất lượng & Cảm xúc (Quality & Feelings) ---
-        "hay nhat", # Bổ sung bản không dấu cho "hay nhất"
-        "đỉnh nhất", "dinh nhat",
-        "tuyệt nhất", "tuyet nhat",
-        "được yêu thích", "duoc yeu thich",
-        "yêu thích nhất", "yeu thich nhat",
-        "bất hủ", "bat hu", # Dành cho nhạc xưa/kinh điển
-        "đỉnh của chóp", # Slang gen Z hay dùng
-        
+        "hay nhat",  # Bổ sung bản không dấu cho "hay nhất"
+        "đỉnh nhất",
+        "dinh nhat",
+        "tuyệt nhất",
+        "tuyet nhat",
+        "được yêu thích",
+        "duoc yeu thich",
+        "yêu thích nhất",
+        "yeu thich nhat",
+        "bất hủ",
+        "bat hu",  # Dành cho nhạc xưa/kinh điển
+        "đỉnh của chóp",  # Slang gen Z hay dùng
         # --- Nhóm: Xu hướng & Bảng xếp hạng (Trends & Charts) ---
-        "xu hướng", "xu huong",
-        "bảng xếp hạng", "bang xep hang", "bxh",
-        "hit", "siêu hit", "sieu hit",
-        "đình đám", "dinh dam",
-        "đang nổi", "dang noi",
+        "xu hướng",
+        "xu huong",
+        "bảng xếp hạng",
+        "bang xep hang",
+        "bxh",
+        "hit",
+        "siêu hit",
+        "sieu hit",
+        "đình đám",
+        "dinh dam",
+        "đang nổi",
+        "dang noi",
         "viral",
-        
         # --- Nhóm: Lượt xem/Nghe (Views & Streams) ---
-        "triệu view", "trieu view",
-        "nhiều lượt nghe", "nhieu luot nghe",
-        "nhiều view", "nhieu view",
-        "best", "top 10", "top 100"
+        "triệu view",
+        "trieu view",
+        "nhiều lượt nghe",
+        "nhieu luot nghe",
+        "nhiều view",
+        "nhieu view",
+        "best",
+        "top 10",
+        "top 100",
     ]
     return any(k in q for k in keywords)
 
@@ -96,10 +115,7 @@ def _fetch_trending_from_bigquery(limit: int) -> str:
             f"💎 Tỉ lệ Paid: {row.paid_ratio_pct}%"
         )
 
-    return (
-        "🔥 **Top bài hát thịnh hành** (fallback từ BigQuery):\n\n"
-        + "\n\n".join(lines)
-    )
+    return "🔥 **Top bài hát thịnh hành** (fallback từ BigQuery):\n\n" + "\n\n".join(lines)
 
 
 @tool
@@ -123,9 +139,7 @@ def recommend_songs(query: str, top_k: int = 5) -> str:
             return _fetch_trending_from_bigquery(top_k)
 
         # If RAG dependencies are not ready, fallback for trending requests.
-        rag_ready = bool(settings.GOOGLE_API_KEY) and collection_exists(
-            settings.CHROMA_COLLECTION_SONGS
-        )
+        rag_ready = bool(settings.GOOGLE_API_KEY) and collection_exists(settings.CHROMA_COLLECTION_SONGS)
 
         if not rag_ready:
             return (
@@ -150,10 +164,7 @@ def recommend_songs(query: str, top_k: int = 5) -> str:
                 f"💎 Tỉ lệ Paid: {metadata.get('paid_ratio_pct', 'N/A')}%"
             )
 
-        return (
-            f"🎶 **Top {len(docs)} bài hát phù hợp:**\n\n"
-            + "\n\n".join(results)
-        )
+        return f"🎶 **Top {len(docs)} bài hát phù hợp:**\n\n" + "\n\n".join(results)
 
     except Exception as e:
         return f"Lỗi khi tìm kiếm bài hát: {str(e)}. Hãy thử lại sau."

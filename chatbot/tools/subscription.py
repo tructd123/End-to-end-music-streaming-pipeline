@@ -4,8 +4,8 @@ SoundFlow AI Chatbot - Subscription Management Tool
 Handles subscription changes (Free ↔ Paid) for users.
 """
 
-from langchain_core.tools import tool
 from google.cloud import bigquery
+from langchain_core.tools import tool
 
 from config import settings
 
@@ -40,9 +40,7 @@ def change_subscription(user_id: str, new_level: str) -> str:
         """
 
         job_config = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id))
-            ]
+            query_parameters=[bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id))]
         )
 
         results = list(client.query(check_query, job_config=job_config).result())

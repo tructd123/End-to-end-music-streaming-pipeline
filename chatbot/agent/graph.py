@@ -6,27 +6,29 @@ Implements the ReAct agent pattern:
 """
 
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
 
-from agent.state import AgentState
 from agent.prompts import SOUNDFLOW_SYSTEM_PROMPT
-from tools.song_recommender import recommend_songs
-from tools.smart_recommender import recommend_personalized
-from tools.mood_recommender import recommend_by_mood
-from tools.user_stats import get_user_stats, get_user_listening_history
-from tools.subscription import change_subscription
-from tools.search import search_songs, search_artists, search_songs_by_artist
-from tools.playlist import (
-    get_playlist, create_playlist, delete_playlist,
-    update_playlist, remove_song_from_playlist,
-)
+from agent.state import AgentState
 from config import settings
-
+from tools.mood_recommender import recommend_by_mood
+from tools.playlist import (
+    create_playlist,
+    delete_playlist,
+    get_playlist,
+    remove_song_from_playlist,
+    update_playlist,
+)
+from tools.search import get_trending_songs, search_artists, search_songs, search_songs_by_artist
+from tools.smart_recommender import recommend_personalized
+from tools.song_recommender import recommend_songs
+from tools.subscription import change_subscription
+from tools.user_stats import get_user_listening_history, get_user_stats
 
 # ---------------------------------------------------------------------------
 # All tools available to the agent
-# ---------------------------------------------------------------------------   
+# ---------------------------------------------------------------------------
 ALL_TOOLS = [
     recommend_songs,
     recommend_personalized,
@@ -37,6 +39,7 @@ ALL_TOOLS = [
     search_songs,
     search_artists,
     search_songs_by_artist,
+    get_trending_songs,
     get_playlist,
     create_playlist,
     delete_playlist,

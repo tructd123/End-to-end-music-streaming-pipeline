@@ -7,8 +7,8 @@ for relevant songs/artists based on user queries.
 
 from langchain_core.vectorstores import VectorStoreRetriever
 
-from rag.vectorstore import get_vectorstore
 from config import settings
+from rag.vectorstore import get_vectorstore
 
 
 def get_retriever(

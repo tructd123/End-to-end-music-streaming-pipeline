@@ -5,12 +5,12 @@ Personalized song recommendations combining user listening history
 from BigQuery (mart_active_users) with ChromaDB vector search.
 """
 
-from langchain_core.tools import tool
 from google.cloud import bigquery
+from langchain_core.tools import tool
 
+from config import settings
 from rag.retriever import get_retriever
 from rag.vectorstore import collection_exists
-from config import settings
 
 
 def _get_bq_client() -> bigquery.Client:
@@ -135,9 +135,7 @@ def recommend_personalized(user_id: str, query: str = "", top_k: int = 5) -> str
         if query:
             context_parts.append(query)
         if top_artists:
-            context_parts.append(
-                f"nghệ sĩ tương tự {', '.join(top_artists[:3])}"
-            )
+            context_parts.append(f"nghệ sĩ tương tự {', '.join(top_artists[:3])}")
         if prefs.get("favorite_time"):
             time_mood_map = {
                 "Morning": "nhạc tươi sáng, năng động cho buổi sáng",
@@ -145,17 +143,13 @@ def recommend_personalized(user_id: str, query: str = "", top_k: int = 5) -> str
                 "Evening": "nhạc tối, sâu lắng",
                 "Night": "nhạc đêm, nhẹ nhàng, acoustic",
             }
-            time_context = time_mood_map.get(
-                prefs["favorite_time"], "nhạc hay"
-            )
+            time_context = time_mood_map.get(prefs["favorite_time"], "nhạc hay")
             context_parts.append(time_context)
 
         search_query = " ".join(context_parts) if context_parts else "nhạc hay phổ biến"
 
         # Step 4: Check RAG readiness
-        rag_ready = bool(settings.GOOGLE_API_KEY) and collection_exists(
-            settings.CHROMA_COLLECTION_SONGS
-        )
+        rag_ready = bool(settings.GOOGLE_API_KEY) and collection_exists(settings.CHROMA_COLLECTION_SONGS)
 
         if not rag_ready:
             return (
@@ -173,10 +167,7 @@ def recommend_personalized(user_id: str, query: str = "", top_k: int = 5) -> str
         docs = retriever.invoke(search_query)
 
         if not docs:
-            return (
-                f"Không tìm thấy bài hát phù hợp với sở thích của "
-                f"{prefs['full_name']}. Hãy thử mô tả cụ thể hơn."
-            )
+            return f"Không tìm thấy bài hát phù hợp với sở thích của {prefs['full_name']}. Hãy thử mô tả cụ thể hơn."
 
         # Step 6: Format results
         results = []

@@ -8,10 +8,9 @@ maps to music keywords, and searches ChromaDB for matching songs.
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+from config import settings
 from rag.retriever import get_retriever
 from rag.vectorstore import collection_exists
-from config import settings
-
 
 # ---------------------------------------------------------------------------
 # Mood categories and keyword mapping (Task 2.2)
@@ -64,7 +63,7 @@ def _classify_mood(message: str) -> str | None:
     prompt = (
         f"Classify the mood/emotion of the following message into "
         f"exactly ONE of these categories: {valid_moods}.\n\n"
-        f"Message: \"{message}\"\n\n"
+        f'Message: "{message}"\n\n'
         f"Rules:\n"
         f"- Reply with ONLY the category name (one word, lowercase)\n"
         f"- If the mood is unclear or the message is not about emotions, "
@@ -106,11 +105,11 @@ def recommend_by_mood(message: str, top_k: int = 5) -> str:
                 "🤔 Mình chưa rõ tâm trạng của bạn. "
                 "Bạn có thể mô tả cụ thể hơn không?\n\n"
                 "Ví dụ:\n"
-                "- 😢 \"Tôi đang buồn\"\n"
-                "- ⚡ \"Tôi muốn nhạc sôi động\"\n"
-                "- 😌 \"Tôi cần thư giãn\"\n"
-                "- 💕 \"Tôi đang yêu\"\n"
-                "- 🎯 \"Tôi cần tập trung học bài\""
+                '- 😢 "Tôi đang buồn"\n'
+                '- ⚡ "Tôi muốn nhạc sôi động"\n'
+                '- 😌 "Tôi cần thư giãn"\n'
+                '- 💕 "Tôi đang yêu"\n'
+                '- 🎯 "Tôi cần tập trung học bài"'
             )
 
         # Step 2: Get keywords for the detected mood
@@ -118,9 +117,7 @@ def recommend_by_mood(message: str, top_k: int = 5) -> str:
         search_query = " ".join(keywords)
 
         # Step 3: Check RAG readiness
-        rag_ready = bool(settings.GOOGLE_API_KEY) and collection_exists(
-            settings.CHROMA_COLLECTION_SONGS
-        )
+        rag_ready = bool(settings.GOOGLE_API_KEY) and collection_exists(settings.CHROMA_COLLECTION_SONGS)
 
         if not rag_ready:
             mood_label = MOOD_DISPLAY.get(mood, mood)
@@ -137,9 +134,7 @@ def recommend_by_mood(message: str, top_k: int = 5) -> str:
         if not docs:
             mood_label = MOOD_DISPLAY.get(mood, mood)
             return (
-                f"🎭 Tâm trạng: **{mood_label}**\n\n"
-                f"Không tìm thấy bài hát phù hợp tâm trạng này. "
-                f"Hãy thử mô tả khác."
+                f"🎭 Tâm trạng: **{mood_label}**\n\nKhông tìm thấy bài hát phù hợp tâm trạng này. Hãy thử mô tả khác."
             )
 
         # Step 5: Format results
@@ -156,11 +151,7 @@ def recommend_by_mood(message: str, top_k: int = 5) -> str:
                 f"💎 Tỉ lệ Paid: {metadata.get('paid_ratio_pct', 'N/A')}%"
             )
 
-        return (
-            f"🎭 Tâm trạng: **{mood_label}**\n"
-            f"🔍 Từ khóa: {', '.join(keywords[:4])}\n\n"
-            + "\n\n".join(results)
-        )
+        return f"🎭 Tâm trạng: **{mood_label}**\n🔍 Từ khóa: {', '.join(keywords[:4])}\n\n" + "\n\n".join(results)
 
     except Exception as e:
         return f"Lỗi khi gợi ý nhạc theo mood: {str(e)}. Hãy thử lại sau."

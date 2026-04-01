@@ -30,6 +30,7 @@ const TOOL_LABELS = Object.freeze({
     search_songs: "🔍 Đang tìm kiếm bài hát...",
     search_artists: "🔍 Đang tìm kiếm nghệ sĩ...",
     search_songs_by_artist: "🔍 Đang tìm bài hát của nghệ sĩ...",
+    get_trending_songs: "🔥 Đang tìm Top trending...",
     get_playlist: "📋 Đang lấy danh sách playlist...",
     create_playlist: "📝 Đang tạo playlist...",
     delete_playlist: "🗑️ Đang xóa playlist...",
@@ -94,6 +95,16 @@ function finalizeListFormatting(text) {
     // Put closing prompts on a separate paragraph.
     out = out.replace(/\s+(?=(Bạn có muốn|Hay bạn muốn|Bạn muốn)\b)/g, "\n\n");
     return out;
+}
+
+// ===================== User ID Selector =====================
+const userSelect = document.getElementById("user-select");
+if (userSelect) {
+    userSelect.addEventListener("change", (e) => {
+        state.userId = e.target.value.trim() !== "" ? e.target.value : null;
+    });
+    // Init state based on default selection
+    state.userId = userSelect.value.trim() !== "" ? userSelect.value : null;
 }
 
 // ===================== Event Listeners =====================
@@ -286,8 +297,10 @@ async function streamResponse(message) {
 
     const params = new URLSearchParams({
         message: message,
-        user_id: state.userId,
     });
+    if (state.userId && state.userId !== "null") {
+        params.set("user_id", state.userId);
+    }
     if (state.conversationId) {
         params.set("conversation_id", state.conversationId);
     }

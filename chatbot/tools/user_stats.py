@@ -4,8 +4,8 @@ SoundFlow AI Chatbot - User Statistics Tool
 Queries BigQuery mart_active_users to provide user engagement data.
 """
 
-from langchain_core.tools import tool
 from google.cloud import bigquery
+from langchain_core.tools import tool
 
 from config import settings
 
@@ -59,9 +59,7 @@ def get_user_stats(user_id: str) -> str:
         """
 
         job_config = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id))
-            ]
+            query_parameters=[bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id))]
         )
 
         results = client.query(query, job_config=job_config).result()
@@ -111,7 +109,7 @@ def get_user_listening_history(user_id: str, limit: int = 10) -> str:
         limit: Số lượng bài hát muốn lấy (mặc định 10)
     """
     try:
-        staging_dataset = settings.BQ_DATASET_MARTS.replace('marts', 'staging')
+        staging_dataset = settings.BQ_DATASET_MARTS.replace("marts", "staging")
 
         client = _get_bq_client()
 
@@ -130,8 +128,8 @@ def get_user_listening_history(user_id: str, limit: int = 10) -> str:
 
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter('user_id', 'STRING', str(user_id)),
-                bigquery.ScalarQueryParameter('limit', 'INT64', limit)
+                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id)),
+                bigquery.ScalarQueryParameter("limit", "INT64", limit),
             ]
         )
 
@@ -143,7 +141,7 @@ def get_user_listening_history(user_id: str, limit: int = 10) -> str:
 
         response = f"🕒 **Lịch sử nghe nhạc gần đây của user ID ({user_id}):**\n\n"
         for idx, row in enumerate(rows, 1):
-            time_str = row.event_timestamp.strftime('%Y-%m-%d %H:%M:%S') if row.event_timestamp else 'Unknown'
+            time_str = row.event_timestamp.strftime("%Y-%m-%d %H:%M:%S") if row.event_timestamp else "Unknown"
             response += f"{idx}. **{row.song}** - {row.artist} *(lúc {time_str})*\n"
 
         return response

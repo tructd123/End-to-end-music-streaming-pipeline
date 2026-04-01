@@ -14,8 +14,9 @@ import time
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+from langchain_core.messages import AIMessage, HumanMessage
+
 from memory.store import ConversationStore
-from langchain_core.messages import HumanMessage, AIMessage
 
 
 def test_new_session_without_id():

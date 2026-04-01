@@ -5,8 +5,7 @@ Tests for Phase 2 Smart Features:
 - playlist CRUD (delete_playlist, update_playlist, remove_song_from_playlist)
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 # -----------------------------------------------------------------------
@@ -21,9 +20,7 @@ class TestRecommendPersonalized:
         from tools.smart_recommender import recommend_personalized
 
         mock_prefs.return_value = None
-        result = recommend_personalized.invoke(
-            {"user_id": "unknown123", "query": "nhạc hay"}
-        )
+        result = recommend_personalized.invoke({"user_id": "unknown123", "query": "nhạc hay"})
         assert "recommend_songs" in result.lower() or "chung" in result.lower() or "Không tìm thấy" in result
 
     @patch("tools.smart_recommender.collection_exists")
@@ -45,18 +42,14 @@ class TestRecommendPersonalized:
         mock_artists.return_value = ["Artist1"]
         mock_coll.return_value = False
 
-        result = recommend_personalized.invoke(
-            {"user_id": "user1", "query": "nhạc"}
-        )
+        result = recommend_personalized.invoke({"user_id": "user1", "query": "nhạc"})
         assert "RAG" in result or "chưa sẵn sàng" in result
 
     @patch("tools.smart_recommender.get_retriever")
     @patch("tools.smart_recommender.collection_exists")
     @patch("tools.smart_recommender._fetch_top_artists_for_user")
     @patch("tools.smart_recommender._fetch_user_preferences")
-    def test_successful_recommendation(
-        self, mock_prefs, mock_artists, mock_coll, mock_retriever
-    ):
+    def test_successful_recommendation(self, mock_prefs, mock_artists, mock_coll, mock_retriever):
         """Verify tool returns personalized results."""
         from tools.smart_recommender import recommend_personalized
 
@@ -84,9 +77,7 @@ class TestRecommendPersonalized:
         mock_ret.invoke.return_value = [mock_doc]
         mock_retriever.return_value = mock_ret
 
-        result = recommend_personalized.invoke(
-            {"user_id": "user1", "query": ""}
-        )
+        result = recommend_personalized.invoke({"user_id": "user1", "query": ""})
         assert "Lạc Trôi" in result
         assert "Power User" in result
 
@@ -121,9 +112,7 @@ class TestRecommendByMood:
     @patch("tools.mood_recommender.get_retriever")
     @patch("tools.mood_recommender.collection_exists")
     @patch("tools.mood_recommender._classify_mood")
-    def test_successful_mood_recommendation(
-        self, mock_classify, mock_coll, mock_retriever
-    ):
+    def test_successful_mood_recommendation(self, mock_classify, mock_coll, mock_retriever):
         """Verify mood detection and recommendation."""
         from tools.mood_recommender import recommend_by_mood
 
@@ -155,7 +144,7 @@ class TestMoodCategories:
 
     def test_all_moods_have_keywords(self):
         """Verify all mood categories have keywords defined."""
-        from tools.mood_recommender import MOOD_KEYWORDS, MOOD_DISPLAY
+        from tools.mood_recommender import MOOD_DISPLAY, MOOD_KEYWORDS
 
         for mood in MOOD_KEYWORDS:
             assert len(MOOD_KEYWORDS[mood]) > 0
@@ -187,9 +176,7 @@ class TestDeletePlaylist:
         mock_query.query.return_value = mock_result
         mock_client.return_value = mock_query
 
-        result = delete_playlist.invoke(
-            {"user_id": "user1", "playlist_name": "Nonexistent"}
-        )
+        result = delete_playlist.invoke({"user_id": "user1", "playlist_name": "Nonexistent"})
         assert "Không tìm thấy" in result
 
     @patch("tools.playlist._get_bq_client")
@@ -213,9 +200,7 @@ class TestDeletePlaylist:
         ]
         mock_client.return_value = mock_query
 
-        result = delete_playlist.invoke(
-            {"user_id": "user1", "playlist_name": "Nhạc buồn"}
-        )
+        result = delete_playlist.invoke({"user_id": "user1", "playlist_name": "Nhạc buồn"})
         assert "xóa" in result.lower() and "thành công" in result.lower()
 
 

@@ -4,8 +4,8 @@ SoundFlow AI Chatbot - Search Tools
 Search songs and artists from BigQuery data warehouse.
 """
 
-from langchain_core.tools import tool
 from google.cloud import bigquery
+from langchain_core.tools import tool
 
 from config import settings
 
@@ -66,10 +66,7 @@ def search_songs(query: str, limit: int = 10) -> str:
                 f"⏰ Phổ biến: {row.peak_time_of_day}"
             )
 
-        return (
-            f"🔍 **Kết quả tìm kiếm cho '{query}'** ({len(rows)} bài):\n\n"
-            + "\n\n".join(results)
-        )
+        return f"🔍 **Kết quả tìm kiếm cho '{query}'** ({len(rows)} bài):\n\n" + "\n\n".join(results)
 
     except Exception as e:
         return f"Lỗi tìm kiếm: {str(e)}"
@@ -128,13 +125,11 @@ def search_artists(query: str, limit: int = 10) -> str:
                 f"💎 Paid: {row.paid_ratio_pct}%"
             )
 
-        return (
-            f"🔍 **Kết quả tìm kiếm nghệ sĩ '{query}'** ({len(rows)} kết quả):\n\n"
-            + "\n\n".join(results)
-        )
+        return f"🔍 **Kết quả tìm kiếm nghệ sĩ '{query}'** ({len(rows)} kết quả):\n\n" + "\n\n".join(results)
 
     except Exception as e:
         return f"Lỗi tìm kiếm: {str(e)}"
+
 
 @tool
 def search_songs_by_artist(artist_name: str, limit: int = 5) -> str:
@@ -167,7 +162,7 @@ def search_songs_by_artist(artist_name: str, limit: int = 5) -> str:
 
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("artist_name", "STRING", artist_name),        
+                bigquery.ScalarQueryParameter("artist_name", "STRING", artist_name),
                 bigquery.ScalarQueryParameter("limit", "INT64", limit),
             ]
         )
@@ -186,10 +181,50 @@ def search_songs_by_artist(artist_name: str, limit: int = 5) -> str:
                 f"💎 Tỉ lệ Paid: {row.paid_ratio_pct}%"
             )
 
-        return (
-            f"🎧 **Top bài hát của nghệ sĩ '{artist_name}'**:\n\n"
-            + "\n\n".join(results)
-        )
+        return f"🎧 **Top bài hát của nghệ sĩ '{artist_name}'**:\n\n" + "\n\n".join(results)
 
     except Exception as e:
         return f"Lỗi tìm kiếm bài hát theo nghệ sĩ: {str(e)}"
+
+
+@tool
+def get_trending_songs(limit: int = 10) -> str:
+    """Lấy danh sách các bài hát đang trending (thịnh hành nhất) trong hệ thống.
+
+    Sử dụng công cụ này khi người dùng:
+    - Muốn biết bài hát nào đang hot, phổ biến
+    - Hỏi về các bài hát trending
+    - Yêu cầu bảng xếp hạng top 10 âm nhạc
+
+    Args:
+        limit: Số lượng bài hát trả về (mặc định 10)
+    """
+    try:
+        client = _get_bq_client()
+
+        sql = f"""
+        SELECT
+            rank,
+            song,
+            artist,
+            total_plays
+        FROM `{settings.GCP_PROJECT}.{settings.BQ_DATASET_MARTS}.mart_top_songs`
+        ORDER BY rank ASC
+        LIMIT @limit
+        """
+
+        job_config = bigquery.QueryJobConfig(query_parameters=[bigquery.ScalarQueryParameter("limit", "INT64", limit)])
+
+        rows = list(client.query(sql, job_config=job_config).result())
+
+        if not rows:
+            return "Hiện tại không có dữ liệu trending."
+
+        results = []
+        for row in rows:
+            results.append(f"🔥 #{row.rank} **{row.song}** - {row.artist} ({row.total_plays:,} lượt nghe)")
+
+        return f"📈 **Top {min(limit, len(rows))} Bài Hát Trending:**\n\n" + "\n".join(results)
+
+    except Exception as e:
+        return f"Lỗi lấy dữ liệu trending: {str(e)}"

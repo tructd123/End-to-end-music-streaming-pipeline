@@ -9,11 +9,12 @@ Usage:
 """
 
 import sys
+
 from google.cloud import bigquery
 from langchain_core.documents import Document
 
 from config import settings
-from rag.vectorstore import get_vectorstore, collection_exists
+from rag.vectorstore import collection_exists, get_vectorstore
 
 
 def fetch_top_songs(client: bigquery.Client) -> list[dict]:
@@ -135,12 +136,12 @@ def ingest_songs(force: bool = False) -> int:
         print(f"✅ Collection '{collection_name}' already has data. Use --force to re-ingest.")
         return 0
 
-    print(f"📥 Fetching songs from BigQuery...")
+    print("📥 Fetching songs from BigQuery...")
     client = bigquery.Client(project=settings.GCP_PROJECT)
     songs = fetch_top_songs(client)
     print(f"   Found {len(songs)} songs")
 
-    print(f"📝 Creating documents...")
+    print("📝 Creating documents...")
     documents = create_song_documents(songs)
 
     print(f"🔄 Ingesting into ChromaDB collection '{collection_name}'...")
@@ -166,12 +167,12 @@ def ingest_artists(force: bool = False) -> int:
         print(f"✅ Collection '{collection_name}' already has data. Use --force to re-ingest.")
         return 0
 
-    print(f"📥 Fetching artists from BigQuery...")
+    print("📥 Fetching artists from BigQuery...")
     client = bigquery.Client(project=settings.GCP_PROJECT)
     artists = fetch_top_artists(client)
     print(f"   Found {len(artists)} artists")
 
-    print(f"📝 Creating documents...")
+    print("📝 Creating documents...")
     documents = create_artist_documents(artists)
 
     print(f"🔄 Ingesting into ChromaDB collection '{collection_name}'...")

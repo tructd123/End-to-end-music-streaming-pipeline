@@ -1,10 +1,14 @@
 """Minimal Gemini API diagnostic."""
-import sys, os
+
+import os
+import sys
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -13,8 +17,9 @@ print(f"API Key prefix: {API_KEY[:12]}...")
 # Test 1: Try models/gemini-2.0-flash (full path)
 print("\n--- Test A: model='models/gemini-2.0-flash' ---")
 try:
-    from langchain_google_genai import ChatGoogleGenerativeAI
     from langchain_core.messages import HumanMessage
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
     llm = ChatGoogleGenerativeAI(model="models/gemini-2.0-flash", google_api_key=API_KEY, temperature=0.7)
     r = llm.invoke([HumanMessage(content="Say hi")])
     print(f"  OK: {r.content[:100]}")
@@ -43,6 +48,7 @@ except Exception as e:
 print("\n--- Test D: Embedding 'models/text-embedding-004' ---")
 try:
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
     emb = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=API_KEY)
     vec = emb.embed_query("hello world")
     print(f"  OK: dim={len(vec)}")

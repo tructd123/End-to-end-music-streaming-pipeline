@@ -5,8 +5,8 @@ Manages the ChromaDB persistent vector store for song/artist embeddings.
 """
 
 import chromadb
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 from config import settings
 

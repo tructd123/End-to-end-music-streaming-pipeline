@@ -10,14 +10,15 @@ Tests:
 """
 
 import json
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-
-from httpx import AsyncClient, ASGITransport
+import os
 
 # Need to patch settings before importing app
 import sys
-import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 
@@ -78,7 +79,8 @@ async def test_health_endpoint():
         resp = await client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] == "healthy"
+        assert data["status"] == "ok"
+        assert data["service"] == "soundflow-chatbot"
 
 
 @pytest.mark.asyncio
@@ -127,9 +129,7 @@ async def test_chat_endpoint_returns_conversation_id():
     mock_ai_msg.content = "Hello! How can I help you?"
 
     with patch("app.graph") as mock_graph:
-        mock_graph.ainvoke = AsyncMock(return_value={
-            "messages": [mock_ai_msg]
-        })
+        mock_graph.ainvoke = AsyncMock(return_value={"messages": [mock_ai_msg]})
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -153,9 +153,7 @@ async def test_chat_backward_compatibility():
     mock_ai_msg.content = "I'm SoundFlow AI!"
 
     with patch("app.graph") as mock_graph:
-        mock_graph.ainvoke = AsyncMock(return_value={
-            "messages": [mock_ai_msg]
-        })
+        mock_graph.ainvoke = AsyncMock(return_value={"messages": [mock_ai_msg]})
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:

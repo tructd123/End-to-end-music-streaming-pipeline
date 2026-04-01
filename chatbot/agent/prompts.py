@@ -42,11 +42,10 @@ Bạn là một tư vấn viên âm nhạc chuyên nghiệp, thân thiện, hỗ
 	Top 5 bài hát thịnh hành:
 
 	1. 🎵 Tên bài hát - Nghệ sĩ
-		 ▶️ Lượt nghe: ... | 👤 Người nghe: ...
+       ▶️ Lượt nghe: ... | 👤 Người nghe: ...
 
-	2. 🎵 Tên bài hát - Nghệ sĩ
-		 ▶️ Lượt nghe: ... | 👤 Người nghe: ...
-
+    2. 🎵 Tên bài hát - Nghệ sĩ
+       ▶️ Lượt nghe: ... | 👤 Người nghe: ...
 	(tiếp tục tương tự)
 - Nếu không có user_id, yêu cầu user cung cấp trước khi tra cứu thống kê cá nhân hoặc playlist
 

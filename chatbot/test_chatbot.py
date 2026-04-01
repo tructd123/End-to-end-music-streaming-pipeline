@@ -8,8 +8,8 @@ Usage:
     python test_chatbot.py
 """
 
-import sys
 import os
+import sys
 
 # Ensure chatbot directory is in path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -39,8 +39,9 @@ def test_gemini_llm():
     print("TEST 2: Gemini LLM Direct Call")
     print("=" * 60)
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
         from langchain_core.messages import HumanMessage
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
         from config import settings
 
         llm = ChatGoogleGenerativeAI(
@@ -65,6 +66,7 @@ def test_gemini_embedding():
     print("=" * 60)
     try:
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
         from config import settings
 
         embeddings = GoogleGenerativeAIEmbeddings(
@@ -88,7 +90,7 @@ def test_playlist_tools():
     print("TEST 4: Playlist Tools Import & Structure")
     print("=" * 60)
     try:
-        from tools.playlist import get_playlist, create_playlist
+        from tools.playlist import create_playlist, get_playlist
 
         # Check @tool decorator (creates a BaseTool with .name attribute)
         assert hasattr(get_playlist, "name"), "get_playlist missing .name"
@@ -104,13 +106,14 @@ def test_playlist_tools():
         assert "playlist" in get_playlist.description.lower()
         assert "playlist" in create_playlist.description.lower()
 
-        print(f"  [OK] get_playlist: tool registered, has Vietnamese docstring")
-        print(f"  [OK] create_playlist: tool registered, has Vietnamese docstring")
+        print("  [OK] get_playlist: tool registered, has Vietnamese docstring")
+        print("  [OK] create_playlist: tool registered, has Vietnamese docstring")
         print()
         return True
     except Exception as e:
         print(f"  [FAIL] Error: {e}")
         import traceback
+
         traceback.print_exc()
         print()
         return False
@@ -121,24 +124,28 @@ def test_agent_chat():
     print("TEST 5: Agent Graph (General Chat)")
     print("=" * 60)
     try:
-        from agent.graph import create_graph
         from langchain_core.messages import HumanMessage
+
+        from agent.graph import create_graph
 
         graph = create_graph()
 
-        result = graph.invoke({
-            "messages": [HumanMessage(content="Hello! What can you do? Answer very briefly.")],
-            "user_id": None,
-        })
+        result = graph.invoke(
+            {
+                "messages": [HumanMessage(content="Hello! What can you do? Answer very briefly.")],
+                "user_id": None,
+            }
+        )
 
         ai_msg = result["messages"][-1]
-        print(f"  [OK] Agent responded!")
+        print("  [OK] Agent responded!")
         print(f"  Response: {ai_msg.content[:300]}")
         print()
         return True
     except Exception as e:
         print(f"  [FAIL] Error: {e}")
         import traceback
+
         traceback.print_exc()
         print()
         return False

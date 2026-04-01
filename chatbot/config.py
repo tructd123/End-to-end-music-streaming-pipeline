@@ -4,6 +4,7 @@ SoundFlow AI Chatbot - Configuration
 
 import os
 from dataclasses import dataclass, field
+
 from dotenv import load_dotenv
 
 # Always load chatbot/.env relative to this file, then allow existing
@@ -18,37 +19,19 @@ class Settings:
     """Application settings loaded from environment variables."""
 
     # LLM Configuration (Google Gemini)
-    GOOGLE_API_KEY: str = field(
-        default_factory=lambda: os.getenv("GEMINI_API_KEY", "")
-    )
-    LLM_MODEL: str = field(
-        default_factory=lambda: os.getenv("LLM_MODEL", "gemini-2.5-flash")
-    )
-    EMBEDDING_MODEL: str = field(
-        default_factory=lambda: os.getenv(
-            "EMBEDDING_MODEL", "models/gemini-embedding-001"
-        )
-    )
+    GOOGLE_API_KEY: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
+    LLM_MODEL: str = field(default_factory=lambda: os.getenv("LLM_MODEL", "gemini-2.5-flash"))
+    EMBEDDING_MODEL: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001"))
 
     # GCP Configuration
-    GCP_PROJECT: str = field(
-        default_factory=lambda: os.getenv("GCP_PROJECT", "")
-    )
-    GOOGLE_APPLICATION_CREDENTIALS: str = field(
-        default_factory=lambda: os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
-    )
+    GCP_PROJECT: str = field(default_factory=lambda: os.getenv("GCP_PROJECT", ""))
+    GOOGLE_APPLICATION_CREDENTIALS: str = field(default_factory=lambda: os.getenv("GOOGLE_APPLICATION_CREDENTIALS", ""))
 
     # BigQuery Configuration
-    BQ_DATASET_MARTS: str = field(
-        default_factory=lambda: os.getenv("BQ_DATASET_MARTS", "marts")
-    )
+    BQ_DATASET_MARTS: str = field(default_factory=lambda: os.getenv("BQ_DATASET_MARTS", "marts"))
 
     # ChromaDB Configuration
-    CHROMA_PERSIST_DIR: str = field(
-        default_factory=lambda: os.getenv(
-            "CHROMA_PERSIST_DIR", "./chroma_data"
-        )
-    )
+    CHROMA_PERSIST_DIR: str = field(default_factory=lambda: os.getenv("CHROMA_PERSIST_DIR", "./chroma_data"))
     CHROMA_COLLECTION_SONGS: str = "soundflow_songs"
     CHROMA_COLLECTION_ARTISTS: str = "soundflow_artists"
 
@@ -57,20 +40,12 @@ class Settings:
     RAG_SCORE_THRESHOLD: float = 0.7
 
     # API Configuration
-    API_HOST: str = field(
-        default_factory=lambda: os.getenv("API_HOST", "0.0.0.0")
-    )
-    API_PORT: int = field(
-        default_factory=lambda: int(os.getenv("API_PORT", "8000"))
-    )
+    API_HOST: str = field(default_factory=lambda: os.getenv("API_HOST", "0.0.0.0"))
+    API_PORT: int = field(default_factory=lambda: int(os.getenv("API_PORT", "8000")))
 
     # Conversation Memory
-    MEMORY_TTL_SECONDS: int = field(
-        default_factory=lambda: int(os.getenv("MEMORY_TTL_SECONDS", "1800"))
-    )
-    MEMORY_MAX_SESSIONS: int = field(
-        default_factory=lambda: int(os.getenv("MEMORY_MAX_SESSIONS", "1000"))
-    )
+    MEMORY_TTL_SECONDS: int = field(default_factory=lambda: int(os.getenv("MEMORY_TTL_SECONDS", "1800")))
+    MEMORY_MAX_SESSIONS: int = field(default_factory=lambda: int(os.getenv("MEMORY_MAX_SESSIONS", "1000")))
 
     def __post_init__(self) -> None:
         """Normalize credential path so runtime does not depend on cwd."""
@@ -79,10 +54,11 @@ class Settings:
             creds = os.path.normpath(os.path.join(_BASE_DIR, creds))
         if creds:
             self.GOOGLE_APPLICATION_CREDENTIALS = creds
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds            
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds
         chroma_dir = (self.CHROMA_PERSIST_DIR or "").strip()
         if chroma_dir and not os.path.isabs(chroma_dir):
             self.CHROMA_PERSIST_DIR = os.path.normpath(os.path.join(_BASE_DIR, chroma_dir))
+
     def validate(self) -> list[str]:
         """Validate required settings and return list of missing ones."""
         missing = []

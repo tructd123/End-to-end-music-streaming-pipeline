@@ -16,10 +16,10 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from agent.graph import graph
@@ -58,10 +58,7 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 app = FastAPI(
     title="SoundFlow AI Chatbot",
-    description=(
-        "AI Agent Chatbot cho SoundFlow - tư vấn bài hát, "
-        "quản lý subscription, và thống kê người dùng."
-    ),
+    description=("AI Agent Chatbot cho SoundFlow - tư vấn bài hát, quản lý subscription, và thống kê người dùng."),
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -100,13 +97,24 @@ class ChatResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Global Exception Handler
+# ---------------------------------------------------------------------------
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"🔥 ERROR: {exc}")
+    return JSONResponse(status_code=500, content={"detail": "Lỗi hệ thống không xác định. Vui lòng thử lại sau."})
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     """Handle favicon requests to prevent 404 errors."""
     from fastapi import Response
+
     return Response(status_code=204)
+
 
 @app.get("/")
 async def serve_chat_ui():
@@ -117,7 +125,7 @@ async def serve_chat_ui():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "soundflow-chatbot"}
+    return {"status": "ok", "service": "soundflow-chatbot"}
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -133,9 +141,7 @@ async def chat(request: ChatRequest):
         from langchain_core.messages import HumanMessage
 
         # Load or create conversation session
-        conv_id, history = conversation_store.get_or_create(
-            request.conversation_id
-        )
+        conv_id, history = conversation_store.get_or_create(request.conversation_id)
 
         # Build state with conversation history + new message
         initial_state = {
@@ -201,6 +207,7 @@ async def chat_stream(
 
     from langchain_core.messages import HumanMessage
     from sse_starlette.sse import EventSourceResponse
+
     from agent.streaming import stream_agent_response
 
     # Load or create conversation session
@@ -218,6 +225,7 @@ async def chat_stream(
         ):
             # Collect tokens for saving to memory later
             import json as _json
+
             try:
                 parsed = _json.loads(event_data)
                 if parsed.get("type") == "token":
@@ -228,11 +236,10 @@ async def chat_stream(
 
         # Save conversation with the full response to memory
         from langchain_core.messages import AIMessage
+
         full_response = "".join(collected_tokens)
         if full_response:
-            updated_messages = messages + [
-                AIMessage(content=full_response)
-            ]
+            updated_messages = messages + [AIMessage(content=full_response)]
             conversation_store.save(conv_id, updated_messages)
 
     return EventSourceResponse(event_generator())

@@ -116,6 +116,34 @@ body {
     font-weight: 400;
 }
 
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-selector select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.user-selector select:hover {
+    border-color: var(--accent-primary);
+}
+
+.user-selector select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
 .btn-icon {
     width: 40px;
     height: 40px;

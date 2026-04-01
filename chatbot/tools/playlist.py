@@ -4,8 +4,8 @@ SoundFlow AI Chatbot - Playlist Management Tools
 Create and view user playlists stored in BigQuery.
 """
 
-from langchain_core.tools import tool
 from google.cloud import bigquery
+from langchain_core.tools import tool
 
 from config import settings
 
@@ -53,7 +53,7 @@ def get_playlist(user_id: str) -> str:
             return (
                 f"📋 Người dùng (ID: {user_id}) chưa có playlist nào.\n"
                 f"💡 Bạn có thể tạo playlist mới bằng cách nói: "
-                f"\"Tạo playlist [tên] với bài [tên bài hát]\""
+                f'"Tạo playlist [tên] với bài [tên bài hát]"'
             )
 
         results = []
@@ -69,10 +69,7 @@ def get_playlist(user_id: str) -> str:
                 f"   📅 Tạo: {row.created_at} | Cập nhật: {row.updated_at}"
             )
 
-        return (
-            f"📋 **Playlist của bạn** (ID: {user_id}) — {len(rows)} playlist:\n\n"
-            + "\n\n".join(results)
-        )
+        return f"📋 **Playlist của bạn** (ID: {user_id}) — {len(rows)} playlist:\n\n" + "\n\n".join(results)
 
     except Exception as e:
         return f"❌ Lỗi khi lấy playlist: {str(e)}"
@@ -149,7 +146,7 @@ def create_playlist(user_id: str, playlist_name: str, songs: str) -> str:
             f"👤 User: {user_id}\n"
             f"🎶 Số bài hát: {len(songs_list)}\n\n"
             f"{songs_display}\n\n"
-            f"💡 Xem playlist bằng cách hỏi: \"Xem playlist của tôi\""
+            f'💡 Xem playlist bằng cách hỏi: "Xem playlist của tôi"'
         )
 
     except Exception as e:
@@ -171,10 +168,7 @@ def delete_playlist(user_id: str, playlist_name: str) -> str:
     try:
         client = _get_bq_client()
 
-        table_ref = (
-            f"`{settings.GCP_PROJECT}."
-            f"{settings.BQ_DATASET_MARTS}.mart_user_playlists`"
-        )
+        table_ref = f"`{settings.GCP_PROJECT}.{settings.BQ_DATASET_MARTS}.mart_user_playlists`"
 
         # First check if playlist exists
         check_sql = f"""
@@ -185,23 +179,14 @@ def delete_playlist(user_id: str, playlist_name: str) -> str:
 
         check_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter(
-                    "user_id", "STRING", str(user_id)
-                ),
-                bigquery.ScalarQueryParameter(
-                    "playlist_name", "STRING", playlist_name
-                ),
+                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id)),
+                bigquery.ScalarQueryParameter("playlist_name", "STRING", playlist_name),
             ]
         )
 
-        check_rows = list(
-            client.query(check_sql, job_config=check_config).result()
-        )
+        check_rows = list(client.query(check_sql, job_config=check_config).result())
         if not check_rows or check_rows[0].cnt == 0:
-            return (
-                f"❌ Không tìm thấy playlist **{playlist_name}** "
-                f"cho user {user_id}."
-            )
+            return f"❌ Không tìm thấy playlist **{playlist_name}** cho user {user_id}."
 
         # Delete the playlist
         delete_sql = f"""
@@ -211,12 +196,8 @@ def delete_playlist(user_id: str, playlist_name: str) -> str:
 
         delete_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter(
-                    "user_id", "STRING", str(user_id)
-                ),
-                bigquery.ScalarQueryParameter(
-                    "playlist_name", "STRING", playlist_name
-                ),
+                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id)),
+                bigquery.ScalarQueryParameter("playlist_name", "STRING", playlist_name),
             ]
         )
 
@@ -225,7 +206,7 @@ def delete_playlist(user_id: str, playlist_name: str) -> str:
         return (
             f"✅ Đã xóa playlist **{playlist_name}** thành công!\n\n"
             f"💡 Bạn có thể tạo playlist mới bằng cách nói: "
-            f"\"Tạo playlist [tên] với bài [tên bài hát]\""
+            f'"Tạo playlist [tên] với bài [tên bài hát]"'
         )
 
     except Exception as e:
@@ -233,9 +214,7 @@ def delete_playlist(user_id: str, playlist_name: str) -> str:
 
 
 @tool
-def update_playlist(
-    user_id: str, playlist_name: str, songs_to_add: str
-) -> str:
+def update_playlist(user_id: str, playlist_name: str, songs_to_add: str) -> str:
     """Thêm bài hát vào playlist có sẵn (không trùng lặp).
 
     Sử dụng công cụ này khi người dùng muốn:
@@ -254,10 +233,7 @@ def update_playlist(
 
         client = _get_bq_client()
 
-        table_ref = (
-            f"`{settings.GCP_PROJECT}."
-            f"{settings.BQ_DATASET_MARTS}.mart_user_playlists`"
-        )
+        table_ref = f"`{settings.GCP_PROJECT}.{settings.BQ_DATASET_MARTS}.mart_user_playlists`"
 
         # Get existing playlist
         get_sql = f"""
@@ -268,12 +244,8 @@ def update_playlist(
 
         get_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter(
-                    "user_id", "STRING", str(user_id)
-                ),
-                bigquery.ScalarQueryParameter(
-                    "playlist_name", "STRING", playlist_name
-                ),
+                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id)),
+                bigquery.ScalarQueryParameter("playlist_name", "STRING", playlist_name),
             ]
         )
 
@@ -283,7 +255,7 @@ def update_playlist(
                 f"❌ Không tìm thấy playlist **{playlist_name}** "
                 f"cho user {user_id}.\n"
                 f"💡 Hãy tạo playlist mới bằng cách nói: "
-                f"\"Tạo playlist {playlist_name} với bài ...\""
+                f'"Tạo playlist {playlist_name} với bài ..."'
             )
 
         # Merge songs (no duplicates)
@@ -297,10 +269,7 @@ def update_playlist(
                 added.append(song)
 
         if not added:
-            return (
-                f"ℹ️ Tất cả bài hát đã có trong playlist "
-                f"**{playlist_name}** rồi."
-            )
+            return f"ℹ️ Tất cả bài hát đã có trong playlist **{playlist_name}** rồi."
 
         if len(existing) > 100:
             return "❌ Playlist không thể có quá 100 bài hát."
@@ -314,21 +283,15 @@ def update_playlist(
 
         update_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter(
-                    "user_id", "STRING", str(user_id)
-                ),
-                bigquery.ScalarQueryParameter(
-                    "playlist_name", "STRING", playlist_name
-                ),
+                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id)),
+                bigquery.ScalarQueryParameter("playlist_name", "STRING", playlist_name),
                 bigquery.ArrayQueryParameter("songs", "STRING", existing),
             ]
         )
 
         client.query(update_sql, job_config=update_config).result()
 
-        added_display = "\n".join(
-            f"   ➕ 🎵 {s}" for s in added
-        )
+        added_display = "\n".join(f"   ➕ 🎵 {s}" for s in added)
 
         return (
             f"✅ Đã thêm {len(added)} bài hát vào **{playlist_name}**!\n\n"
@@ -341,9 +304,7 @@ def update_playlist(
 
 
 @tool
-def remove_song_from_playlist(
-    user_id: str, playlist_name: str, song_name: str
-) -> str:
+def remove_song_from_playlist(user_id: str, playlist_name: str, song_name: str) -> str:
     """Xóa một bài hát cụ thể khỏi playlist.
 
     Sử dụng công cụ này khi người dùng muốn:
@@ -358,10 +319,7 @@ def remove_song_from_playlist(
     try:
         client = _get_bq_client()
 
-        table_ref = (
-            f"`{settings.GCP_PROJECT}."
-            f"{settings.BQ_DATASET_MARTS}.mart_user_playlists`"
-        )
+        table_ref = f"`{settings.GCP_PROJECT}.{settings.BQ_DATASET_MARTS}.mart_user_playlists`"
 
         # Get existing playlist
         get_sql = f"""
@@ -372,21 +330,14 @@ def remove_song_from_playlist(
 
         get_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter(
-                    "user_id", "STRING", str(user_id)
-                ),
-                bigquery.ScalarQueryParameter(
-                    "playlist_name", "STRING", playlist_name
-                ),
+                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id)),
+                bigquery.ScalarQueryParameter("playlist_name", "STRING", playlist_name),
             ]
         )
 
         rows = list(client.query(get_sql, job_config=get_config).result())
         if not rows:
-            return (
-                f"❌ Không tìm thấy playlist **{playlist_name}** "
-                f"cho user {user_id}."
-            )
+            return f"❌ Không tìm thấy playlist **{playlist_name}** cho user {user_id}."
 
         existing = list(rows[0].songs) if rows[0].songs else []
 
@@ -395,10 +346,7 @@ def remove_song_from_playlist(
         new_songs = [s for s in existing if s.lower() != song_lower]
 
         if len(new_songs) == len(existing):
-            return (
-                f"❌ Không tìm thấy bài **{song_name}** "
-                f"trong playlist **{playlist_name}**."
-            )
+            return f"❌ Không tìm thấy bài **{song_name}** trong playlist **{playlist_name}**."
 
         # Update playlist without removed song
         update_sql = f"""
@@ -409,12 +357,8 @@ def remove_song_from_playlist(
 
         update_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter(
-                    "user_id", "STRING", str(user_id)
-                ),
-                bigquery.ScalarQueryParameter(
-                    "playlist_name", "STRING", playlist_name
-                ),
+                bigquery.ScalarQueryParameter("user_id", "STRING", str(user_id)),
+                bigquery.ScalarQueryParameter("playlist_name", "STRING", playlist_name),
                 bigquery.ArrayQueryParameter("songs", "STRING", new_songs),
             ]
         )
@@ -429,4 +373,3 @@ def remove_song_from_playlist(
 
     except Exception as e:
         return f"❌ Lỗi khi xóa bài hát: {str(e)}"
-
