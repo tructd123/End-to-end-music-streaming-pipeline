@@ -134,6 +134,18 @@ models:
         tests:
           - not_null
 
+  - name: mart_user_playlists
+    description: "User-created playlists with songs array"
+    columns:
+      - name: user_id
+        description: "User identifier who owns the playlist"
+        tests:
+          - not_null
+      - name: playlist_name
+        description: "Name of the playlist"
+        tests:
+          - not_null
+
   - name: mart_daily_summary
     description: "Executive daily KPI summary"
     columns:

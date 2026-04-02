@@ -137,6 +137,7 @@ docker-compose.override.yml
 *.orc
 data/
 !eventsim/data/
+chroma_data/
 
 # Large data files (use Git LFS if needed)
 *.gz
@@ -165,8 +166,10 @@ logs/
 *.temp
 .cache/
 node_modules/
+.agent
 
 # ====================
 # Example
 # ====================
 README.example.md
+CLAUDE.md

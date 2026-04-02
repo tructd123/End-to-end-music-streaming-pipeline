@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Testing
+.pytest_cache/
+tests/
+test_*.py
+htmlcov/
+.coverage
+*.log
+
+# Environment
+.env
+.env.example
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (mounted as volume)
+chroma_data/
+
+# Git
+.git/
+.gitignore
+
+# Docs
+*.md
+walkthrough.md.resolved
+
+# Debug
+debug_*.py
+test_output.log

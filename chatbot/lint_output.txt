@@ -1,0 +1,175 @@
+﻿E101 Indentation contains mixed spaces and tabs
+  --> chatbot\agent\prompts.py:45:1
+   |
+44 |     1. ≡ƒÄ╡ T├¬n b├ái h├ít - Nghß╗ç s─⌐
+45 |          Γû╢∩╕Å L╞░ß╗út nghe: ... | ≡ƒæñ Ng╞░ß╗¥i nghe: ...
+   | ^^^^^^^^^
+46 |
+47 |     2. ≡ƒÄ╡ T├¬n b├ái h├ít - Nghß╗ç s─⌐
+   |
+
+E101 Indentation contains mixed spaces and tabs
+  --> chatbot\agent\prompts.py:48:1
+   |
+47 |     2. ≡ƒÄ╡ T├¬n b├ái h├ít - Nghß╗ç s─⌐
+48 |          Γû╢∩╕Å L╞░ß╗út nghe: ... | ≡ƒæñ Ng╞░ß╗¥i nghe: ...
+   | ^^^^^^^^^
+49 |
+50 |     (tiß║┐p tß╗Ñc t╞░╞íng tß╗▒)
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:16:1
+   |
+14 | sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+15 |
+16 | import os
+   | ^^^^^^^^^
+17 | from contextlib import asynccontextmanager
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:17:1
+   |
+16 | import os
+17 | from contextlib import asynccontextmanager
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18 |
+19 | from fastapi import FastAPI, HTTPException, Request
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:19:1
+   |
+17 | from contextlib import asynccontextmanager
+18 |
+19 | from fastapi import FastAPI, HTTPException, Request
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+20 | from fastapi.middleware.cors import CORSMiddleware
+21 | from fastapi.responses import FileResponse, JSONResponse
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:20:1
+   |
+19 | from fastapi import FastAPI, HTTPException, Request
+20 | from fastapi.middleware.cors import CORSMiddleware
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21 | from fastapi.responses import FileResponse, JSONResponse
+22 | from fastapi.staticfiles import StaticFiles
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:21:1
+   |
+19 | from fastapi import FastAPI, HTTPException, Request
+20 | from fastapi.middleware.cors import CORSMiddleware
+21 | from fastapi.responses import FileResponse, JSONResponse
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 | from fastapi.staticfiles import StaticFiles
+23 | from pydantic import BaseModel
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:22:1
+   |
+20 | from fastapi.middleware.cors import CORSMiddleware
+21 | from fastapi.responses import FileResponse, JSONResponse
+22 | from fastapi.staticfiles import StaticFiles
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 | from pydantic import BaseModel
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:23:1
+   |
+21 | from fastapi.responses import FileResponse, JSONResponse
+22 | from fastapi.staticfiles import StaticFiles
+23 | from pydantic import BaseModel
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |
+25 | from agent.graph import graph
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:25:1
+   |
+23 | from pydantic import BaseModel
+24 |
+25 | from agent.graph import graph
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+26 | from agent.response_format import normalize_response_text
+27 | from config import settings
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:26:1
+   |
+25 | from agent.graph import graph
+26 | from agent.response_format import normalize_response_text
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+27 | from config import settings
+28 | from memory.store import ConversationStore
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:27:1
+   |
+25 | from agent.graph import graph
+26 | from agent.response_format import normalize_response_text
+27 | from config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 | from memory.store import ConversationStore
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\app.py:28:1
+   |
+26 | from agent.response_format import normalize_response_text
+27 | from config import settings
+28 | from memory.store import ConversationStore
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 |
+30 | # Global conversation store instance
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\debug_gemini.py:10:1
+   |
+ 8 | sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ 9 |
+10 | from dotenv import load_dotenv
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+11 |
+12 | load_dotenv()
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\tests\test_conversation_memory.py:17:1
+   |
+15 | sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+16 |
+17 | from langchain_core.messages import AIMessage, HumanMessage
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18 |
+19 | from memory.store import ConversationStore
+   |
+
+E402 Module level import not at top of file
+  --> chatbot\tests\test_conversation_memory.py:19:1
+   |
+17 | from langchain_core.messages import AIMessage, HumanMessage
+18 |
+19 | from memory.store import ConversationStore
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F401 `.search.get_trending_songs` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> chatbot\tools\__init__.py:1:21
+  |
+1 | from .search import get_trending_songs
+  |                     ^^^^^^^^^^^^^^^^^^
+  |
+help: Use an explicit re-export: `get_trending_songs as get_trending_songs`
+
+Found 17 errors.

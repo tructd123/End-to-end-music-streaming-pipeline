@@ -202,6 +202,34 @@ services:
       - streaming-network
     restart: unless-stopped
 
+  # ============================================
+  # AI CHATBOT - SoundFlow Assistant
+  # ============================================
+  chatbot:
+    build:
+      context: ./chatbot
+      dockerfile: Dockerfile
+    container_name: soundflow-chatbot
+    ports:
+      - "8000:8000"      # Chatbot API + UI
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GCP_PROJECT=${GCP_PROJECT:-graphic-boulder-483814-g7}
+      - BQ_DATASET_MARTS=${BQ_DATASET:-staging_marts}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/pipeline-sa-key.json
+    volumes:
+      - ./credentials:/app/credentials:ro
+      - chatbot-chroma:/app/chroma_data
+    networks:
+      - streaming-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    restart: on-failure
+
 # ============================================
 # VOLUMES
 # ============================================
@@ -214,6 +242,8 @@ volumes:
     name: soundflow-metabase-data
   metabase-postgres:
     name: soundflow-metabase-postgres
+  chatbot-chroma:
+    name: soundflow-chatbot-chroma
 
 # ============================================
 # NETWORKS

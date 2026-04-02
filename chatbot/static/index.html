@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundFlow AI - Trợ lý Âm nhạc</title>
+    <meta name="description" content="Chatbot trợ lý âm nhạc thông minh cho SoundFlow - tư vấn bài hát, quản lý playlist, thống kê nghe nhạc.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=20260320-2">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="chat-header">
+            <div class="header-logo">
+                <span class="logo-icon">🎵</span>
+                <div class="header-text">
+                    <h1>SoundFlow AI</h1>
+                    <span class="header-subtitle">Trợ lý Âm nhạc Thông minh</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="user-selector">
+                    <select id="user-select" title="Chọn User ID để mô phỏng ngữ cảnh">
+                        <option value="">👤 Anonymous</option>
+                        <option value="user_123">👩‍🎤 user_123</option>
+                        <option value="user_456">👨‍🎤 user_456</option>
+                    </select>
+                </div>
+                <button id="new-chat-btn" class="btn-icon" title="Cuộc trò chuyện mới">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Messages Area -->
+        <main class="chat-messages" id="chat-messages">
+            <!-- Welcome Message -->
+            <div class="welcome-container" id="welcome-container">
+                <div class="welcome-icon">🎶</div>
+                <h2 class="welcome-title">Chào mừng bạn đến SoundFlow!</h2>
+                <p class="welcome-subtitle">Tôi có thể giúp bạn tìm bài hát, tạo playlist, xem thống kê nghe nhạc, và nhiều hơn nữa.</p>
+                <div class="suggestion-chips">
+                    <button class="chip" data-message="Gợi ý bài hát hay cho tôi">🎧 Gợi ý bài hát</button>
+                    <button class="chip" data-message="Xem thống kê nghe nhạc của tôi">📊 Thống kê nghe nhạc</button>
+                    <button class="chip" data-message="Tạo playlist nhạc chill cho tôi">📝 Tạo playlist</button>
+                    <button class="chip" data-message="Top bài hát đang hot tại Việt Nam">🔥 Bài hát hot</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Input Area -->
+        <footer class="chat-input-area">
+            <div class="input-container">
+                <textarea
+                    id="message-input"
+                    class="message-input"
+                    placeholder="Nhập tin nhắn..."
+                    rows="1"
+                    autofocus
+                ></textarea>
+                <button id="send-btn" class="send-btn" title="Gửi tin nhắn" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 2L11 13"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/app.js?v=20260320-3"></script>
+</body>
+</html>
