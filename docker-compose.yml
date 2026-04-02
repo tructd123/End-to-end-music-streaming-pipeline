@@ -213,8 +213,9 @@ services:
     ports:
       - "8000:8000"      # Chatbot API + UI
     environment:
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GCP_PROJECT=${GCP_PROJECT:-graphic-boulder-483814-g7}
+      - BQ_DATASET_MARTS=${BQ_DATASET:-staging_marts}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/pipeline-sa-key.json
     volumes:
       - ./credentials:/app/credentials:ro
