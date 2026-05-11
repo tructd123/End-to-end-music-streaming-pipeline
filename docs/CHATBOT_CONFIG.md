@@ -4,7 +4,7 @@
 
 The SoundFlow chatbot is an **AI Agent** built with **LangGraph** using the **ReAct pattern**. It utilizes **Google Gemini** as the main LLM to intelligently route queries and **ChromaDB** as the robust vector store for Retrieval-Augmented Generation (RAG) based song recommendations. The Chatbot exposes API endpoints via **FastAPI** and is equipped with a user-friendly frontend allowing authentication simulation and real-time streaming capabilities.
 
-**Default language**: Vietnamese (trả lời bằng tiếng Việt, trừ khi user nói tiếng Anh).
+**Default language**: Vietnamese (Answer in English unless otherwise specified).
 
 ## 🏗 Architecture
 

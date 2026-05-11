@@ -29,8 +29,8 @@ docker-compose ps
 ### 3️⃣ Generate Events
 
 ```powershell
-# Run eventsim to generate ~50K events
-docker-compose up eventsim
+# Run publish_events to generate ~50K events
+docker-compose up publish_events
 
 # Wait until complete
 # Output: "End Time: ..."
@@ -118,7 +118,7 @@ EVENTSIM_FROM=90
 EVENTSIM_TO=0
 ```
 
-After editing, rebuild eventsim:
+After editing, rebuild publish_events:
 ```powershell
-docker-compose up --build eventsim
+docker-compose up --build publish_events
 ```
