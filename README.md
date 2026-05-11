@@ -1,6 +1,6 @@
 # 🎵 SoundFlow
 
-A data pipeline with Kafka, Spark Streaming, dbt, Docker, Dagster, Terraform, GCP and much more!
+A data pipeline with GCP Pub/Sub, Spark Streaming, dbt, Docker, Dagster, Terraform, GCP and much more!
 
 ## 📋 Objective
 
@@ -8,7 +8,7 @@ The project will stream events generated from a fake music streaming service (li
 
 ## Dataset
 
-[Eventsim](https://github.com/Interana/eventsim) is a program that generates event data to replicate page requests for a fake music web site. The results look like real use data, but are totally fake. The docker image is borrowed from [viirya's fork](https://github.com/viirya/eventsim) of it, as the original project has gone without maintenance for a few years now.
+[Eventsim](https://github.com/Interana/publish_events) is a program that generates event data to replicate page requests for a fake music web site. The results look like real use data, but are totally fake. The docker image is borrowed from [viirya's fork](https://github.com/viirya/publish_events) of it, as the original project has gone without maintenance for a few years now.
 
 Eventsim uses song data from [Million Songs Dataset](http://millionsongdataset.com) to generate events. For this project, approximately **50,000 events** were generated across 4 event types:
 
@@ -25,8 +25,8 @@ Eventsim uses song data from [Million Songs Dataset](http://millionsongdataset.c
 
 | Component | Technology |
 |-----------|------------|
-| Data Generator | EventSim (Scala) |
-| Message Broker | Redpanda (Kafka-compatible) |
+| Data Generator | Python Script (publish_events.py) |
+| Message Broker | GCP Pub/Sub |
 | Data Lake | Google Cloud Storage |
 | Data Warehouse | BigQuery |
 | Transformation | dbt |
@@ -39,7 +39,7 @@ Eventsim uses song data from [Million Songs Dataset](http://millionsongdataset.c
 ## 🏗️ Architecture
 
 ```
-EventSim ──▶ Redpanda ──▶ Python ETL ──▶ GCS (Parquet)
+Python Script ──▶ GCP Pub/Sub ──▶ Python ETL ──▶ GCS (Parquet)
                                               │
                                               ▼
                               BigQuery (External Tables)
@@ -112,8 +112,8 @@ docker compose up -d
 ```
 ├── dagster/          # Orchestration (assets, schedules)
 ├── dbt/              # Transformations (13 models, 31 tests)
-├── eventsim/         # Event generator config
-├── redpanda/         # Kafka broker config
+├── publish_events/         # Event generator config
+├── redpanda/         # Pub/Sub topic config
 ├── spark_streaming/  # ETL scripts
 ├── terraform/        # GCP infrastructure
 ├── dashboard/        # Looker Studio / Metabase setup
@@ -138,7 +138,7 @@ docker compose up -d
 
 | Service | Port | Description |
 |---------|------|-------------|
-| Redpanda | 9092 | Kafka broker |
+| Redpanda | 9092 | Pub/Sub topic |
 | Redpanda Console | 8080 | Kafka UI |
 | Dagster | 3000 | Orchestration UI |
 | Metabase | 3030 | Dashboard (optional) |
